@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 	"wrpl-inspector/wrpl"
 
 	"github.com/AllenDang/cimgui-go/backend"
@@ -74,7 +75,7 @@ func main() {
 	imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsVisible, 1)
 	imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsResizable, 1)
 	log.Info().Msg("creating window")
-	imBackend.CreateWindow("replay inspector", 1150, 900)
+	imBackend.CreateWindow("replay inspector", 1300, 900)
 	imBackend.SetTargetFPS(75)
 	// imgui.CurrentIO().SetConfigViewportsNoAutoMerge(true)
 	imBackend.SetDropCallback(func(p []string) {
@@ -84,18 +85,19 @@ func main() {
 		log.Info().Msg("window closing")
 		parser.WriteCache()
 	})
-	// fontBytes, err := os.ReadFile(`DroidSans.ttf`)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// cfg := imgui.NewFontConfig()
-	// cfg.SetFontData(uintptr(unsafe.Pointer(&fontBytes[0])))
-	// cfg.SetFontDataSize(int32(len(fontBytes)))
-	// cfg.SetSizePixels(20)
-	// cfg.SetFontDataOwnedByAtlas(false)
-	// cfg.SetPixelSnapH(true)
-	// imgui.CurrentIO().Fonts().AddFont(cfg)
-	// // imgui.CurrentIO().Fonts().AddFontFromFileTTFV(`DroidSans.ttf`, 16, fc, imgui.CurrentIO().Fonts().GlyphRangesCyrillic())
+	fontBytes, err := os.ReadFile(`HackNerdFontMono-Regular.ttf`)
+	if err != nil {
+		panic(err)
+	}
+	cfg := imgui.NewFontConfig()
+	cfg.SetFontData(uintptr(unsafe.Pointer(&fontBytes[0])))
+	cfg.SetFontDataSize(int32(len(fontBytes)))
+	cfg.SetSizePixels(15)
+	cfg.SetOversampleH(8)
+	cfg.SetOversampleV(8)
+	cfg.SetFontDataOwnedByAtlas(false)
+	cfg.SetPixelSnapH(true)
+	imgui.CurrentIO().Fonts().AddFont(cfg)
 
 	for _, loadPath := range flag.Args() {
 		log.Info().Str("path", loadPath).Msg("loading")
@@ -144,7 +146,7 @@ func loop() {
 					}
 					for i, finding := range v.PinnedFindings {
 						isPinnedOpen := true
-						imgui.SetNextWindowSizeV(imgui.Vec2{X: 1150, Y: 700}, imgui.CondFirstUseEver)
+						imgui.SetNextWindowSizeV(imgui.Vec2{X: 1300, Y: 700}, imgui.CondFirstUseEver)
 						if imgui.BeginV("pinned packet "+strconv.Itoa(int(finding.InitialID)), &isPinnedOpen, imgui.WindowFlagsNoCollapse) {
 							uiShowPacketListInspect(finding.Packets, &v.PinnedFindings[i].CurrentID, &v.PinnedFindings[i].ViewingPacketListingMode)
 							imgui.End()
@@ -175,7 +177,7 @@ func loop() {
 	}
 	for pinID, ppk := range pinnedPacketsByContent {
 		isPinnedOpen := true
-		imgui.SetNextWindowSizeV(imgui.Vec2{X: 1150, Y: 700}, imgui.CondFirstUseEver)
+		imgui.SetNextWindowSizeV(imgui.Vec2{X: 1300, Y: 700}, imgui.CondFirstUseEver)
 		if imgui.BeginV("pinned packet "+strconv.Itoa(pinID), &isPinnedOpen, imgui.WindowFlagsNoCollapse) {
 			uiShowPacket(ppk)
 			imgui.End()
