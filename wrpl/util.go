@@ -12,9 +12,6 @@ func readVariableLengthSize(r io.Reader) (uint32, error) {
 	// read first byte
 	n, err := r.Read(b[:])
 	if err != nil {
-		if err == io.EOF && n == 0 {
-			return 0, nil // clean EOF
-		}
 		return 0, err
 	}
 	if n != 1 {

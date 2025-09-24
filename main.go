@@ -6,7 +6,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
+	"path"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -114,7 +119,7 @@ func main() {
 			log.Warn().Err(err).Str("path", loadPath).Msg("failed to open")
 			continue
 		}
-		wrpl, err := parser.ReadWRPL(replayBytes)
+		wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true)
 		log.Err(err).Str("path", loadPath).Msg("loading replay")
 		if err != nil {
 			continue
@@ -135,38 +140,9 @@ func loop() {
 	viewport := imgui.MainViewport()
 	imgui.SetNextWindowPos(viewport.WorkPos())
 	imgui.SetNextWindowSize(viewport.WorkSize())
-	if imgui.BeginV("replay inspector", &isOpen, imgui.WindowFlagsNoCollapse|imgui.WindowFlagsNoDecoration|imgui.WindowFlagsNoMove|imgui.WindowFlagsNoSavedSettings) {
-		openReplaysLock.Lock()
-		if len(openReplays) > 0 {
-			if imgui.BeginTabBar("open files") {
-				for _, v := range openReplays {
-					if imgui.BeginTabItem(v.Replay.Header.Hash()) {
-						uiShowParsedReplay(v)
-						imgui.EndTabItem()
-					}
-					for i, finding := range v.PinnedFindings {
-						isPinnedOpen := true
-						imgui.SetNextWindowSizeV(imgui.Vec2{X: 1300, Y: 700}, imgui.CondFirstUseEver)
-						if imgui.BeginV("pinned packet "+strconv.Itoa(int(finding.InitialID)), &isPinnedOpen, imgui.WindowFlagsNoCollapse) {
-							uiShowPacketListInspect(finding.Packets, &v.PinnedFindings[i].CurrentID, &v.PinnedFindings[i].ViewingPacketListingMode)
-							imgui.End()
-						}
-						if !isPinnedOpen {
-							if len(v.PinnedFindings) == 1 {
-								v.PinnedFindings = []pinnedFinding{}
-							} else {
-								v.PinnedFindings = append(v.PinnedFindings[:i], v.PinnedFindings[i+1:]...)
-							}
-						}
-					}
-				}
-				imgui.EndTabBar()
-			}
-		} else {
-			uiCenterText("no replays open, drag one in or specify filename in command line")
-		}
-		openReplaysLock.Unlock()
-
+	windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoDecoration | imgui.WindowFlagsNoMove | imgui.WindowFlagsNoSavedSettings
+	if imgui.BeginV("replay inspector", &isOpen, windowFlags) {
+		uiShowMainWindow()
 		imgui.End()
 	}
 	if imgui.IsKeyPressedBool(imgui.KeyGraveAccent) && imgui.CurrentIO().KeyCtrl() {
@@ -194,6 +170,243 @@ func loop() {
 		log.Info().Msg("closing")
 		imBackend.SetShouldClose(true)
 	}
+}
+
+func uiShowMainWindow() {
+	if imgui.BeginTabBar("open files") {
+		if imgui.BeginTabItem("+") {
+			uiShowBrowseTab()
+			imgui.EndTabItem()
+		}
+
+		openReplaysLock.Lock()
+		for _, v := range openReplays {
+			if imgui.BeginTabItem(v.Replay.Header.Hash()) {
+				uiShowParsedReplay(v)
+				imgui.EndTabItem()
+			}
+			for i, finding := range v.PinnedFindings {
+				isPinnedOpen := true
+				imgui.SetNextWindowSizeV(imgui.Vec2{X: 1300, Y: 700}, imgui.CondFirstUseEver)
+				if imgui.BeginV("pinned packet "+strconv.Itoa(int(finding.InitialID)), &isPinnedOpen, imgui.WindowFlagsNoCollapse) {
+					uiShowPacketListInspect(finding.Packets, &v.PinnedFindings[i].CurrentID, &v.PinnedFindings[i].ViewingPacketListingMode)
+					imgui.End()
+				}
+				if !isPinnedOpen {
+					if len(v.PinnedFindings) == 1 {
+						v.PinnedFindings = []pinnedFinding{}
+					} else {
+						v.PinnedFindings = append(v.PinnedFindings[:i], v.PinnedFindings[i+1:]...)
+					}
+				}
+			}
+		}
+		openReplaysLock.Unlock()
+		imgui.EndTabBar()
+	}
+}
+
+var (
+	wrplDiscoveryDirs              = []string{``}
+	wrplDiscoveryFoundReplayPaths  = []string{}
+	wrplDiscoverySelectedReplay    = ""
+	wrplDiscoveryComplete          = false
+	wrplDiscoveryDownloadSessionID = ""
+	wrplDiscoveryDownloadErr       = error(nil)
+)
+
+func uiShowBrowseTab() {
+
+	// https://warthunder.com/en/api/replay/389458687984464183 hex to number
+
+	imgui.TextUnformatted("Welcome to wrpl-inspector")
+	if !wrplDiscoveryComplete {
+		wrplDiscoveryComplete = true
+
+		homedir, err := os.UserHomeDir()
+		if err == nil {
+			wrplDiscoveryDirs = append(wrplDiscoveryDirs,
+				filepath.Join(homedir, `.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/War Thunder/Replays`),
+				filepath.Join(homedir, `.local/share/Steam/steamapps/common/War Thunder/Replays`),
+			)
+		}
+		for _, dirPath := range wrplDiscoveryDirs {
+			dir, err := os.ReadDir(dirPath)
+			if err != nil {
+				continue
+			}
+			for _, dirEntry := range dir {
+				if dirEntry.IsDir() {
+					continue
+				}
+				if !strings.HasSuffix(dirEntry.Name(), ".wrpl") {
+					continue
+				}
+				wrplDiscoveryFoundReplayPaths = append(wrplDiscoveryFoundReplayPaths, filepath.Join(dirPath, dirEntry.Name()))
+			}
+		}
+	}
+
+	imgui.TextUnformatted("Download by sessionID (hex)")
+	imgui.SameLine()
+	imgui.SetNextItemWidth(250)
+	imgui.InputTextWithHint("##downloadid", "", &wrplDiscoveryDownloadSessionID, 0, func(data imgui.InputTextCallbackData) int { return 0 })
+	imgui.SameLine()
+	if imgui.Button("Get") {
+		fetchServerReplay()
+	}
+	if wrplDiscoveryDownloadErr != nil {
+		imgui.TextUnformatted(wrplDiscoveryDownloadErr.Error())
+	}
+
+	imgui.TextUnformatted(fmt.Sprintf("Found %d local replays", len(wrplDiscoveryFoundReplayPaths)))
+
+	if imgui.BeginListBoxV("##local replays", imgui.ContentRegionAvail()) {
+		for _, v := range wrplDiscoveryFoundReplayPaths {
+			isSelected := v == wrplDiscoverySelectedReplay
+			if imgui.SelectableBoolV(v, isSelected, 0, imgui.Vec2{}) {
+				if wrplDiscoverySelectedReplay == v {
+					replayBytes, err := os.ReadFile(wrplDiscoverySelectedReplay)
+					if err != nil {
+						log.Warn().Err(err).Str("path", wrplDiscoverySelectedReplay).Msg("failed to open")
+						continue
+					}
+					wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true)
+					log.Err(err).Str("path", wrplDiscoverySelectedReplay).Msg("loading replay")
+					if err != nil {
+						continue
+					}
+					openReplaysLock.Lock()
+					openReplays = append([]*parsedReplay{{
+						LoadedFrom:   wrplDiscoverySelectedReplay,
+						FileContents: replayBytes,
+						Replay:       wrpl,
+					}}, openReplays...)
+					openReplaysLock.Unlock()
+				} else {
+					wrplDiscoverySelectedReplay = v
+				}
+			}
+		}
+		imgui.EndListBox()
+	}
+}
+
+func fetchServerReplay() {
+	sessionNumber, err := strconv.ParseUint(wrplDiscoveryDownloadSessionID, 16, 64)
+	if err != nil {
+		wrplDiscoveryDownloadErr = fmt.Errorf("parsing session id hex: %w", err)
+		return
+	}
+	sessionNumberStr := strconv.FormatUint(sessionNumber, 10)
+	infoUrl := "https://warthunder.com/en/api/replay/" + sessionNumberStr
+	log.Info().Str("url", infoUrl).Msg("fetching")
+	resp, err := http.Get(infoUrl)
+	if err != nil {
+		wrplDiscoveryDownloadErr = fmt.Errorf("http get api/replay: %w", err)
+		return
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		wrplDiscoveryDownloadErr = fmt.Errorf("reading api/replay body: %w", err)
+		return
+	}
+	sessionPath := filepath.Join("fetchedReplays", sessionNumberStr)
+	err = os.MkdirAll(sessionPath, 0755)
+	if err != nil {
+		wrplDiscoveryDownloadErr = fmt.Errorf("making fetched replays dir: %w", err)
+		return
+	}
+	err = os.WriteFile(filepath.Join(sessionPath, "info.json"), bodyBytes, 0644)
+	if err != nil {
+		wrplDiscoveryDownloadErr = fmt.Errorf("saving session info json: %w", err)
+		return
+	}
+	type Reply struct {
+		Replay struct {
+			SessionID          string `json:"sessionId"`
+			SessionIDHex       string `json:"sessionIdHex"`
+			Policy             int    `json:"policy"`
+			Title              string `json:"title"`
+			MissionName        string `json:"missionName"`
+			MissionDescription string `json:"missionDescription"`
+			TournamentName     string `json:"tournamentName"`
+			StartTime          int    `json:"startTime"`
+			EndTime            int    `json:"endTime"`
+			TotalViews         int    `json:"totalViews"`
+			StatisticGroup     string `json:"statisticGroup"`
+			URL                string `json:"url"`
+			Version            int    `json:"version"`
+			TeamNames          any    `json:"teamNames"`
+			GameVersion        string `json:"gameVersion"`
+			ClanBattle         bool   `json:"clanBattle"`
+			IsCompleted        bool   `json:"isCompleted"`
+			IsNewbies          bool   `json:"isNewbies"`
+			GameType           string `json:"gameType"`
+			GameMode           string `json:"gameMode"`
+			Players            struct {
+				Team1 []struct {
+					UserID   string `json:"userId"`
+					Name     string `json:"name"`
+					FakeName string `json:"fakeName"`
+				} `json:"team_1"`
+				Team2 []struct {
+					UserID   string `json:"userId"`
+					Name     string `json:"name"`
+					FakeName string `json:"fakeName"`
+				} `json:"team_2"`
+			} `json:"players"`
+			PartsCount int    `json:"partsCount"`
+			Visible    int    `json:"visible"`
+			ID         string `json:"id"`
+		} `json:"replay"`
+		ReplayParts []string `json:"replay_parts"`
+		IsMember    bool     `json:"is_member"`
+	}
+	var sessinfo Reply
+	err = json.Unmarshal(bodyBytes, &sessinfo)
+	if err != nil {
+		wrplDiscoveryDownloadErr = fmt.Errorf("decoding json api/replay body: %w", err)
+		return
+	}
+	parts := [][]byte{}
+	for i, v := range sessinfo.ReplayParts {
+		partUrl, err := url.Parse(v)
+		if err != nil {
+			wrplDiscoveryDownloadErr = fmt.Errorf("parsing part url: %w", err)
+			return
+		}
+		partPath := filepath.Join(sessionPath, path.Base(partUrl.Path))
+		resp, err := http.Get(strings.ReplaceAll(v, `https://wt-game-replays.warthunder.com/`, `https://wt-replays-cdnnow.cdn.gaijin.net/`))
+		if err != nil {
+			wrplDiscoveryDownloadErr = fmt.Errorf("http get replay part %d %q: %w", i, v, err)
+			return
+		}
+		part, err := io.ReadAll(resp.Body)
+		if err != nil {
+			wrplDiscoveryDownloadErr = fmt.Errorf("http get replay part %d %q: %w", i, v, err)
+			return
+		}
+		err = os.WriteFile(partPath, part, 0644)
+		if err != nil {
+			wrplDiscoveryDownloadErr = fmt.Errorf("saving session info json: %w", err)
+			return
+		}
+		parts = append(parts, part)
+	}
+	rpl, err := parser.ReadPartedWRPL(parts)
+	if err != nil {
+		wrplDiscoveryDownloadErr = fmt.Errorf("reading segmented replay: %w", err)
+	} else {
+		wrplDiscoveryDownloadErr = nil
+	}
+	openReplaysLock.Lock()
+	openReplays = append([]*parsedReplay{{
+		LoadedFrom:   "downloaded session " + sessionNumberStr,
+		FileContents: []byte("see " + sessionPath),
+		Replay:       rpl,
+	}}, openReplays...)
+	openReplaysLock.Unlock()
 }
 
 func uiShowParsedReplay(rpl *parsedReplay) {

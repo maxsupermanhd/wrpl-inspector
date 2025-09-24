@@ -2,7 +2,6 @@ package wrpl
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 )
 
@@ -59,23 +58,38 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	r := bytes.NewReader(pk.PacketPayload)
 
-	var objectID, messageID uint16
-	err := binary.Read(r, binary.LittleEndian, &objectID)
-	if err != nil {
-		return nil, err
-	}
-	err = binary.Read(r, binary.LittleEndian, &messageID)
+	// var objectID, messageID uint16
+	// err := binary.Read(r, binary.LittleEndian, &objectID)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = binary.Read(r, binary.LittleEndian, &messageID)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	signature := [4]byte{}
+	_, err := r.Read(signature[:])
 	if err != nil {
 		return nil, err
 	}
 
-	return &ParsedPacket{
-		Name: "mpi packet",
-		Props: map[string]any{
-			"objectID":  objectID,
-			"messageID": messageID,
-		},
-	}, nil
+	switch {
+	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x73}):
+	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x78}):
+		return parsePacketMPI_Award(pk, r)
+	default:
+		return &ParsedPacket{
+			Name: "unknown mpi packet",
+			Props: map[string]any{
+				"signature": signature,
+			},
+		}, nil
+	}
+}
+
+func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (*ParsedPacket, error) {
+	return nil, nil
 }
 
 func packetReadLenString(r *bytes.Reader) (string, error) {

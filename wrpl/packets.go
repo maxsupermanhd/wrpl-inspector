@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -23,16 +24,19 @@ func (parser *WRPLParser) parsePacketStream(r io.Reader) (ret []*WRPLRawPacket, 
 	for {
 		packetSize, err := readVariableLengthSize(r)
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			return ret, fmt.Errorf("reading packet size: %w", err)
 		}
+		if packetSize == 0 {
+			// return ret, fmt.Errorf("empty payload of packet %d", packetNum)
+			continue
+		}
 		packetBytes := make([]byte, packetSize)
-		n, err := io.ReadFull(r, packetBytes)
+		_, err = io.ReadFull(r, packetBytes)
 		if err != nil {
 			return ret, fmt.Errorf("reading packet payload: %w", err)
-		}
-		if n == 0 {
-			return ret, fmt.Errorf("empty payload of packet %d", packetNum)
-			// continue
 		}
 		packetNum++
 

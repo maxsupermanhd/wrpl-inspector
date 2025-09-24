@@ -4,3 +4,5 @@ logs/
 replays*
 cache*
 wrpl-inspector
+fetchedReplays
+out.*
