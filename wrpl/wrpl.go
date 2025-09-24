@@ -46,9 +46,9 @@ func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err e
 		}
 	}
 	ret = &WRPL{
-		Header:       parts[len(keys)-1].Header,
+		Header:       parts[0].Header,
 		Settings:     parts[0].Settings,
-		SettingsJSON: parts[len(keys)-1].SettingsJSON,
+		SettingsJSON: parts[0].SettingsJSON,
 		Packets:      []*WRPLRawPacket{},
 	}
 	for k := range keys {
