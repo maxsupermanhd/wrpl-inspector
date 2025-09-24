@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -223,9 +224,6 @@ var (
 )
 
 func uiShowBrowseTab() {
-
-	// https://warthunder.com/en/api/replay/389458687984464183 hex to number
-
 	imgui.TextUnformatted("Welcome to wrpl-inspector")
 	if !wrplDiscoveryComplete {
 		wrplDiscoveryComplete = true
@@ -261,7 +259,7 @@ func uiShowBrowseTab() {
 	imgui.InputTextWithHint("##downloadid", "", &wrplDiscoveryDownloadSessionID, 0, func(data imgui.InputTextCallbackData) int { return 0 })
 	imgui.SameLine()
 	if imgui.Button("Download from hex sid") {
-		wrplDiscoveryDownloadErr = fetchServerReplay()
+		wrplDiscoveryDownloadErr = fetchServerReplay(wrplDiscoveryDownloadSessionID)
 	}
 	imgui.SameLine()
 	if imgui.Button("Open downloaded sid") {
@@ -360,17 +358,7 @@ func openSegmentedReplayFolder(folderPath string) error {
 	return nil
 }
 
-func fetchServerReplay() error {
-	// sessionNumber, err := strconv.ParseUint(wrplDiscoveryDownloadSessionID, 16, 64)
-	// if err != nil {
-	// 	wrplDiscoveryDownloadErr = fmt.Errorf("parsing session id hex: %w", err)
-	// 	return
-	// }
-
-	// https://wt-game-replays.warthunder.com/05673a8e0001c7df/0000.wrpl
-	// https://wt-replays-cdnnow.cdn.gaijin.net/a6f11200189a5205/0000.wrpl
-
-	sessionNumberStr := wrplDiscoveryDownloadSessionID //strconv.FormatUint(sessionNumber, 10)
+func fetchServerReplay(sessionNumberStr string) error {
 	sessionReplaysDir := filepath.Join("fetchedReplays", sessionNumberStr)
 	err := os.MkdirAll(sessionReplaysDir, 0755)
 	if err != nil {
@@ -444,6 +432,21 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 	}
 }
 
+func analyseGetTimes(packets []*wrpl.WRPLRawPacket) []float32 {
+	if len(packets) == 0 {
+		return []float32{0}
+	}
+	values := []float32{}
+	for _, pk := range packets {
+		t := int(pk.CurrentTime / 100_000)
+		if t+1 > len(values) {
+			values = append(values, make([]float32, t-len(values)+1)...)
+		}
+		values[t]++
+	}
+	return values
+}
+
 func uiShowReplaySummary(rpl *parsedReplay) {
 	imgui.TextUnformatted(rpl.LoadedFrom)
 	uiTextParam("Session:", fmt.Sprintf("%d", rpl.Replay.Header.SessionID))
@@ -482,6 +485,7 @@ type uiSearchPacketData struct {
 	InitialSearchDone  bool
 	EnableFilterByType bool
 	FilterByType       int32
+	TimeGraph          []float32
 }
 
 func uiShowPacketSearch(rpl *parsedReplay) {
@@ -611,7 +615,7 @@ func uiShowPacketSearch(rpl *parsedReplay) {
 }
 
 func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mode *int32) {
-	viewModes := []string{"hexdump", "context hex", "context plain", "context both"}
+	viewModes := []string{"hexdump", "context hex", "context plain", "context both", "amout/time"}
 
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Mode")
@@ -657,6 +661,9 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 			for offset := range contextSize*2 + 1 {
 				i := *selected + offset - contextSize
 				imgui.TableNextRow()
+				if offset == contextSize {
+					imgui.TableSetBgColor(imgui.TableBgTargetRowBg0, 0x99999900)
+				}
 				imgui.TableNextColumn()
 				if offset == contextSize {
 					imgui.TextUnformatted(strconv.Itoa(int(i)) + ">>")
@@ -687,8 +694,12 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 					case 2:
 						imgui.TextUnformatted(bytesToChar(payload))
 					default:
-						imgui.TextUnformatted(bytesToChar(payload))
+						show := ""
+						for _, v := range bytesToChar(payload) {
+							show += string(v) + " "
+						}
 						imgui.TextUnformatted(hex.EncodeToString(payload))
+						imgui.TextUnformatted(show)
 					}
 				} else {
 					imgui.TableNextColumn()
@@ -712,6 +723,12 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 			isHoverScroll = isHoverScroll || imgui.IsItemHovered()
 			imgui.EndTable()
 		}
+	case 4:
+		results := analyseGetTimes(packets)
+		avail := imgui.ContentRegionAvail()
+		imgui.PlotHistogramFloatPtrV("##da plot search",
+			&results[0], int32(len(results)),
+			0, "", math.MaxFloat32, math.MaxFloat32, imgui.Vec2{X: avail.X, Y: avail.Y / 2}, 4)
 	}
 	if isHoverScroll {
 		wh := imgui.CurrentIO().MouseWheel()
