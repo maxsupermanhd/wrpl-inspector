@@ -38,7 +38,7 @@ type WRPLHeader struct {
 	Raw_Unknown0         [35]byte
 	SessionType          uint32
 	Raw_Unknown1         [4]byte
-	SessionID            [8]byte
+	SessionID            uint64
 	ReplayPartNumber     byte
 	Raw_Unknown2         [3]byte
 	MsetSize             uint32

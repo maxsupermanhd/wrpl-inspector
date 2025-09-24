@@ -19,18 +19,21 @@ type WRPL struct {
 }
 
 func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
+	if len(replayBytes) == 0 {
+		return nil, nil
+	}
 	parts := map[int]*WRPL{}
-	var sessionID []byte
+	var sessionID uint64
 	for i, r := range replayBytes {
 		rpl, err := parser.ReadWRPL(bytes.NewReader(r), true, true)
 		if err != nil {
 			return nil, fmt.Errorf("parsing replay part file %d: %w", i, err)
 		}
 		if i == 0 {
-			sessionID = rpl.Header.SessionID[:]
+			sessionID = rpl.Header.SessionID
 		} else {
-			if !bytes.Equal(sessionID, rpl.Header.SessionID[:]) {
-				return nil, fmt.Errorf("multiple sessions %q and %q", sessionID, rpl.Header.SessionID[:])
+			if sessionID != rpl.Header.SessionID {
+				return nil, fmt.Errorf("multiple sessions %016x and %016x at file %d", sessionID, rpl.Header.SessionID, i)
 			}
 		}
 		parts[int(rpl.Header.ReplayPartNumber)] = rpl
@@ -44,7 +47,7 @@ func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err e
 	}
 	ret = &WRPL{
 		Header:       parts[len(keys)-1].Header,
-		Settings:     parts[len(keys)-1].Settings,
+		Settings:     parts[0].Settings,
 		SettingsJSON: parts[len(keys)-1].SettingsJSON,
 		Packets:      []*WRPLRawPacket{},
 	}
