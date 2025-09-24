@@ -79,7 +79,7 @@ func main() {
 	imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsVisible, 1)
 	imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsResizable, 1)
 	log.Info().Msg("creating window")
-	imBackend.CreateWindow("replay inspector", 1300, 900)
+	imBackend.CreateWindow("replay inspector", 1300, 1000)
 	imBackend.SetTargetFPS(75)
 	// imgui.CurrentIO().SetConfigViewportsNoAutoMerge(true)
 	imBackend.SetDropCallback(func(p []string) {
@@ -500,7 +500,8 @@ func uiShowPacketSearch(rpl *parsedReplay) {
 	imgui.TextUnformatted("Mode")
 	imgui.SameLine()
 	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
-	if imgui.ComboStr("##searchMode", &rpl.ViewingPacketSearch.Mode, "regex hex\x00regex bin\x00regex plain\x00prefix hex\x00contains hex\x00contains plain") {
+	modesStrs := []string{"regex hex", "regex bin", "regex plain", "prefix hex", "contains hex", "contains plain"}
+	if imgui.ComboStrarr("##searchMode", &rpl.ViewingPacketSearch.Mode, modesStrs, int32(len(modesStrs))) {
 		doSearch = true
 	}
 	if imgui.Checkbox("Filter type", &rpl.ViewingPacketSearch.EnableFilterByType) {
@@ -610,7 +611,7 @@ func uiShowPacketSearch(rpl *parsedReplay) {
 }
 
 func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mode *int32) {
-	viewModes := []string{"hexdump", "context hex", "context plain"}
+	viewModes := []string{"hexdump", "context hex", "context plain", "context both"}
 
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Mode")
@@ -639,7 +640,12 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 	case 1:
 		fallthrough
 	case 2:
-		contextSize := int32(10)
+		fallthrough
+	case 3:
+		contextSize := int32(20)
+		if *mode == 3 {
+			contextSize = int32(10)
+		}
 		tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
 		if imgui.BeginTableV("##context", 5, tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
 			imgui.TableSetupColumn("idx")
@@ -675,13 +681,15 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 					if len(payload) > 128 {
 						payload = payload[:128]
 					}
-					var content string
-					if *mode == 1 {
-						content = hex.EncodeToString(payload)
-					} else {
-						content = bytesToChar(payload)
+					switch *mode {
+					case 1:
+						imgui.TextUnformatted(hex.EncodeToString(payload))
+					case 2:
+						imgui.TextUnformatted(bytesToChar(payload))
+					default:
+						imgui.TextUnformatted(bytesToChar(payload))
+						imgui.TextUnformatted(hex.EncodeToString(payload))
 					}
-					imgui.TextUnformatted(content)
 				} else {
 					imgui.TableNextColumn()
 					imgui.TextUnformatted("")
@@ -690,7 +698,15 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 					imgui.TableNextColumn()
 					imgui.TextUnformatted("")
 					imgui.TableNextColumn()
-					imgui.TextUnformatted("")
+					switch *mode {
+					case 1:
+						imgui.TextUnformatted("")
+					case 2:
+						imgui.TextUnformatted("")
+					default:
+						imgui.TextUnformatted("")
+						imgui.TextUnformatted("")
+					}
 				}
 			}
 			isHoverScroll = isHoverScroll || imgui.IsItemHovered()
