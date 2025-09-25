@@ -482,7 +482,14 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 	for i := range len(fieldNames) {
 		fieldNames[i] = rfPkType.Field(i).Name
 	}
-	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
+	tableFlags := imgui.TableFlagsRowBg |
+		imgui.TableFlagsBordersV |
+		imgui.TableFlagsBordersOuterH |
+		imgui.TableFlagsSizingFixedFit |
+		// imgui.TableFlagsSortable |
+		// imgui.TableFlagsSortTristate |
+		imgui.TableFlagsReorderable |
+		imgui.TableFlagsResizable
 	if imgui.BeginTableV("##context", 2+int32(len(fieldNames)), tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
 		imgui.TableSetupColumn("num")
 		imgui.TableSetupColumn("time")
