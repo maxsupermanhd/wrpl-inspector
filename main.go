@@ -306,7 +306,7 @@ func addReplayTab(rpl *parsedReplay) {
 }
 
 func openSingleReplayFile(filePath string) error {
-	replayBytes, err := os.ReadFile(wrplDiscoverySelectedReplay)
+	replayBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -315,7 +315,7 @@ func openSingleReplayFile(filePath string) error {
 		return err
 	}
 	addReplayTab(&parsedReplay{
-		LoadedFrom:   wrplDiscoverySelectedReplay,
+		LoadedFrom:   filePath,
 		FileContents: replayBytes,
 		Replay:       wrpl,
 	})
