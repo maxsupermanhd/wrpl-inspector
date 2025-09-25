@@ -51,6 +51,9 @@ type parsedReplay struct {
 	ViewingPacketID          int32
 	ViewingPacketSearch      uiSearchPacketData
 	PinnedFindings           []pinnedFinding
+	ParsedPacketsCurrentName int32
+	ParsedPacketNames        []string
+	ParsedPackets            [][]*wrpl.WRPLRawPacket
 }
 
 type pinnedFinding struct {
@@ -433,6 +436,10 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 			uiShowReplayPacketVals(rpl)
 			imgui.EndTabItem()
 		}
+		if imgui.BeginTabItem("parsed") {
+			uiShowChat(rpl)
+			imgui.EndTabItem()
+		}
 		imgui.EndTabBar()
 	}
 }
@@ -453,12 +460,99 @@ func analyseGetTimes(packets []*wrpl.WRPLRawPacket) []float32 {
 }
 
 var (
+	ppViews = map[string]func(packets []*wrpl.WRPLRawPacket){
+		"chat": func(packets []*wrpl.WRPLRawPacket) {
+			tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
+			if imgui.BeginTableV("##context", 5, tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
+				imgui.TableSetupColumn("num")
+				imgui.TableSetupColumn("from")
+				imgui.TableSetupColumn("isEnemy")
+				imgui.TableSetupColumn("channel")
+				imgui.TableSetupColumn("content")
+				imgui.TableHeadersRow()
+
+				for i, pk := range packets {
+					p, ok := pk.Parsed.Data.(wrpl.ParsedPacketChat)
+					if !ok {
+						imgui.TableNextRow()
+						imgui.TableNextColumn()
+						imgui.TextUnformatted(strconv.Itoa(i))
+
+						imgui.TableNextColumn()
+						imgui.TextUnformatted("parsed data has wrong type")
+						continue
+					}
+					imgui.TableNextRow()
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(strconv.Itoa(i))
+
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(p.Sender)
+
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(strconv.Itoa(int(p.IsEnemy)))
+
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(strconv.Itoa(int(p.ChannelType)))
+
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(p.Content)
+				}
+
+				imgui.EndTable()
+			}
+		},
+	}
+)
+
+func uiShowChat(rpl *parsedReplay) {
+	if rpl.ParsedPacketNames == nil {
+		p := map[string][]*wrpl.WRPLRawPacket{}
+		for _, pk := range rpl.Replay.Packets {
+			if pk.Parsed == nil {
+				continue
+			}
+			if pk.Parsed.Name == "" {
+				continue
+			}
+			if pk.Parsed.Data == nil {
+				continue
+			}
+			p[pk.Parsed.Name] = append(p[pk.Parsed.Name], pk)
+		}
+		rpl.ParsedPacketNames = slices.Collect(maps.Keys(p))
+		slices.Sort(rpl.ParsedPacketNames)
+		rpl.ParsedPackets = make([][]*wrpl.WRPLRawPacket, len(rpl.ParsedPacketNames))
+		for i, n := range rpl.ParsedPacketNames {
+			rpl.ParsedPackets[i] = append(rpl.ParsedPackets[i], p[n]...)
+		}
+	}
+
+	imgui.ComboStrarr("packet", &rpl.ParsedPacketsCurrentName, rpl.ParsedPacketNames, int32(len(rpl.ParsedPacketNames)))
+
+	if imgui.BeginChildStr("##parsedView") {
+		packets := rpl.ParsedPackets[rpl.ParsedPacketsCurrentName]
+		packetName := rpl.ParsedPacketNames[rpl.ParsedPacketsCurrentName]
+
+		view, ok := ppViews[packetName]
+		if ok {
+			view(packets)
+		} else {
+			imgui.TextUnformatted(fmt.Sprintf("no view for packet name %q", packetName))
+		}
+
+		imgui.EndChild()
+	}
+}
+
+var (
 	pvProcessed    = false
 	pvKeys         []string
 	pvKeysMaxWidth float32
 	pvVals         = [][]float32{}
 	pvViewOffset   = int32(0)
 	pvViewSize     = int32(512)
+	pvPacketName   = ""
 )
 
 func uiShowReplayPacketVals(rpl *parsedReplay) {
@@ -468,7 +562,7 @@ func uiShowReplayPacketVals(rpl *parsedReplay) {
 			if pk.Parsed == nil {
 				continue
 			}
-			if pk.Parsed.Name != "position" {
+			if pk.Parsed.Name != pvPacketName {
 				continue
 			}
 			if pvKeys == nil {
@@ -505,6 +599,18 @@ func uiShowReplayPacketVals(rpl *parsedReplay) {
 		for _, k := range pvKeys {
 			pvKeysMaxWidth = max(pvKeysMaxWidth, imgui.CalcTextSize(k).X)
 		}
+	}
+
+	if imgui.InputTextWithHint("packet name", "", &pvPacketName, 0, func(data imgui.InputTextCallbackData) int {
+		pvProcessed = false
+		return 0
+	}) {
+		pvProcessed = false
+	}
+
+	if len(pvVals) == 0 {
+		imgui.TextUnformatted("no values to show")
+		return
 	}
 
 	imgui.SliderInt("offset", &pvViewOffset, 0, int32(len(pvVals[0]))-1)

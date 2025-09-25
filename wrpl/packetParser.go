@@ -11,6 +11,7 @@ type ParsedPacket struct {
 	Name      string
 	Props     map[string]any
 	PropsJSON string
+	Data      any
 }
 
 func parsePacket(pk *WRPLRawPacket) (*ParsedPacket, error) {
@@ -24,36 +25,43 @@ func parsePacket(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	}
 }
 
+type ParsedPacketChat struct {
+	Sender      string
+	Content     string
+	ChannelType byte
+	IsEnemy     byte
+}
+
 func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	r := bytes.NewReader(pk.PacketPayload)
 	_, err = r.ReadByte()
 	if err != nil {
 		return
 	}
+	parsed := ParsedPacketChat{}
 	ret = &ParsedPacket{
 		Name:  "chat",
 		Props: map[string]any{},
+		Data:  nil,
 	}
-	sender, err := packetReadLenString(r)
+	parsed.Sender, err = packetReadLenString(r)
 	if err != nil {
 		return
 	}
-	ret.Props["sender"] = sender
-	msg, err := packetReadLenString(r)
+	parsed.Content, err = packetReadLenString(r)
 	if err != nil {
 		return
 	}
-	ret.Props["msg"] = msg
-	channelType, err := r.ReadByte()
+	parsed.ChannelType, err = r.ReadByte()
 	if err != nil {
 		return
 	}
-	ret.Props["channelType"] = channelType
-	isEnemy, err := r.ReadByte()
+	parsed.IsEnemy, err = r.ReadByte()
 	if err != nil {
 		return
 	}
-	ret.Props["isEnemy"] = isEnemy
+
+	ret.Data = parsed
 	return
 }
 
