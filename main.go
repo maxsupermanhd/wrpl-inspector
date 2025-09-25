@@ -483,8 +483,9 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 		fieldNames[i] = rfPkType.Field(i).Name
 	}
 	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
-	if imgui.BeginTableV("##context", int32(1+len(fieldNames)), tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
+	if imgui.BeginTableV("##context", 2+int32(len(fieldNames)), tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
 		imgui.TableSetupColumn("num")
+		imgui.TableSetupColumn("time")
 		for _, n := range fieldNames {
 			imgui.TableSetupColumn(n)
 		}
@@ -493,6 +494,8 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 			imgui.TableNextRow()
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(strconv.Itoa(i))
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime)))
 			rfPkVal := reflect.ValueOf(pk.Parsed.Data)
 			for i := range fieldNames {
 				imgui.TableNextColumn()
