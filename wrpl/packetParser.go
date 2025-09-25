@@ -3,8 +3,10 @@ package wrpl
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 )
 
 type ParsedPacket struct {
@@ -34,15 +36,15 @@ type ParsedPacketChat struct {
 
 func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	r := bytes.NewReader(pk.PacketPayload)
-	_, err = r.ReadByte()
-	if err != nil {
-		return
-	}
 	parsed := ParsedPacketChat{}
 	ret = &ParsedPacket{
 		Name:  "chat",
 		Props: map[string]any{},
 		Data:  nil,
+	}
+	_, err = r.ReadByte()
+	if err != nil {
+		return
 	}
 	parsed.Sender, err = packetReadLenString(r)
 	if err != nil {
@@ -88,7 +90,7 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x73}): // ^00025873 some rando noise
 	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x74}): // ^00025874 model info (has steering)
 	// case bytes.Equal(signature[:], []byte{0x00, 0x03, 0x58, 0x43}): // ^00035843 model info (has turret angles)
-	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x78}):
+	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x78}): // ^00025878
 		return parsePacketMPI_Award(pk, r)
 	default:
 		return &ParsedPacket{
@@ -100,8 +102,74 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	}
 }
 
-func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (*ParsedPacket, error) {
-	return nil, nil
+type ParsedPacketAward struct {
+	Always0xF0     string
+	AwardType      byte
+	Always0x003e   string
+	Always0x000000 string
+	Player         byte
+	AwardName      string
+	Rem            string
+}
+
+func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
+	parsed := ParsedPacketAward{}
+	ret = &ParsedPacket{
+		Name:  "award",
+		Props: map[string]any{},
+		Data:  nil,
+	}
+	parsed.Always0xF0, err = readToHexStr(r, 1)
+	if err != nil {
+		return
+	}
+	parsed.AwardType, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	parsed.Always0x003e, err = readToHexStr(r, 2)
+	if err != nil {
+		return
+	}
+	parsed.Player, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	parsed.Always0x000000, err = readToHexStr(r, 3)
+	if err != nil {
+		return
+	}
+	parsed.AwardName, err = packetReadLenString(r)
+	if err != nil {
+		return
+	}
+	parsed.Rem, err = readToHexStrFull(r)
+	if err != nil {
+		return
+	}
+
+	ret.Data = parsed
+	return
+}
+
+func readToHexStr(r *bytes.Reader, l int) (string, error) {
+	ret := ""
+	for range l {
+		b, err := r.ReadByte()
+		if err != nil {
+			return "", err
+		}
+		ret += fmt.Sprintf("%02x", b)
+	}
+	return ret, nil
+}
+
+func readToHexStrFull(r *bytes.Reader) (string, error) {
+	retBytes, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(retBytes), nil
 }
 
 func packetAutoReadName[T any](r *bytes.Reader, order binary.ByteOrder, m map[string]any, name string) error {

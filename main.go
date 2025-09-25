@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -437,7 +438,7 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 			imgui.EndTabItem()
 		}
 		if imgui.BeginTabItem("parsed") {
-			uiShowChat(rpl)
+			uiShowParsed(rpl)
 			imgui.EndTabItem()
 		}
 		imgui.EndTabBar()
@@ -459,53 +460,57 @@ func analyseGetTimes(packets []*wrpl.WRPLRawPacket) []float32 {
 	return values
 }
 
-var (
-	ppViews = map[string]func(packets []*wrpl.WRPLRawPacket){
-		"chat": func(packets []*wrpl.WRPLRawPacket) {
-			tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
-			if imgui.BeginTableV("##context", 5, tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
-				imgui.TableSetupColumn("num")
-				imgui.TableSetupColumn("from")
-				imgui.TableSetupColumn("isEnemy")
-				imgui.TableSetupColumn("channel")
-				imgui.TableSetupColumn("content")
-				imgui.TableHeadersRow()
-
-				for i, pk := range packets {
-					p, ok := pk.Parsed.Data.(wrpl.ParsedPacketChat)
-					if !ok {
-						imgui.TableNextRow()
-						imgui.TableNextColumn()
-						imgui.TextUnformatted(strconv.Itoa(i))
-
-						imgui.TableNextColumn()
-						imgui.TextUnformatted("parsed data has wrong type")
-						continue
-					}
-					imgui.TableNextRow()
-					imgui.TableNextColumn()
-					imgui.TextUnformatted(strconv.Itoa(i))
-
-					imgui.TableNextColumn()
-					imgui.TextUnformatted(p.Sender)
-
-					imgui.TableNextColumn()
-					imgui.TextUnformatted(strconv.Itoa(int(p.IsEnemy)))
-
-					imgui.TableNextColumn()
-					imgui.TextUnformatted(strconv.Itoa(int(p.ChannelType)))
-
-					imgui.TableNextColumn()
-					imgui.TextUnformatted(p.Content)
-				}
-
-				imgui.EndTable()
-			}
-		},
+func viewReflection(packets []*wrpl.WRPLRawPacket) {
+	if len(packets) == 0 {
+		imgui.TextUnformatted("no packets?")
+		return
 	}
-)
+	if packets[0] == nil {
+		imgui.TextUnformatted("first packet nil?")
+		return
+	}
+	if packets[0].Parsed == nil {
+		imgui.TextUnformatted("first packet parsed nil?")
+		return
+	}
+	if packets[0].Parsed.Data == nil {
+		imgui.TextUnformatted("first packet parsed data nil?")
+		return
+	}
+	rfPkType := reflect.TypeOf(packets[0].Parsed.Data)
+	fieldNames := make([]string, rfPkType.NumField())
+	for i := range len(fieldNames) {
+		fieldNames[i] = rfPkType.Field(i).Name
+	}
+	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
+	if imgui.BeginTableV("##context", int32(1+len(fieldNames)), tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
+		imgui.TableSetupColumn("num")
+		for _, n := range fieldNames {
+			imgui.TableSetupColumn(n)
+		}
+		imgui.TableHeadersRow()
+		for i, pk := range packets {
+			imgui.TableNextRow()
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(strconv.Itoa(i))
+			rfPkVal := reflect.ValueOf(pk.Parsed.Data)
+			for i := range fieldNames {
+				imgui.TableNextColumn()
+				rfPkField := rfPkVal.Field(i)
+				if rfPkField.Kind() == reflect.String {
+					imgui.TextUnformatted(rfPkField.String())
+				} else if rfPkField.CanUint() {
+					imgui.TextUnformatted(strconv.FormatUint(rfPkField.Uint(), 10))
+				} else {
+					imgui.TextUnformatted(rfPkField.String())
+				}
+			}
+		}
+		imgui.EndTable()
+	}
+}
 
-func uiShowChat(rpl *parsedReplay) {
+func uiShowParsed(rpl *parsedReplay) {
 	if rpl.ParsedPacketNames == nil {
 		p := map[string][]*wrpl.WRPLRawPacket{}
 		for _, pk := range rpl.Replay.Packets {
@@ -532,14 +537,9 @@ func uiShowChat(rpl *parsedReplay) {
 
 	if imgui.BeginChildStr("##parsedView") {
 		packets := rpl.ParsedPackets[rpl.ParsedPacketsCurrentName]
-		packetName := rpl.ParsedPacketNames[rpl.ParsedPacketsCurrentName]
+		// packetName := rpl.ParsedPacketNames[rpl.ParsedPacketsCurrentName]
 
-		view, ok := ppViews[packetName]
-		if ok {
-			view(packets)
-		} else {
-			imgui.TextUnformatted(fmt.Sprintf("no view for packet name %q", packetName))
-		}
+		viewReflection(packets)
 
 		imgui.EndChild()
 	}
@@ -563,6 +563,9 @@ func uiShowReplayPacketVals(rpl *parsedReplay) {
 				continue
 			}
 			if pk.Parsed.Name != pvPacketName {
+				continue
+			}
+			if pk.Parsed.Props == nil {
 				continue
 			}
 			if pvKeys == nil {
