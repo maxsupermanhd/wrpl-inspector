@@ -2,7 +2,9 @@ package wrpl
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 type ParsedPacket struct {
@@ -75,7 +77,9 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	}
 
 	switch {
-	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x73}):
+	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x73}): // ^00025873 some rando noise
+	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x74}): // ^00025874 model info (has steering)
+	// case bytes.Equal(signature[:], []byte{0x00, 0x03, 0x58, 0x43}): // ^00035843 model info (has turret angles)
 	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x78}):
 		return parsePacketMPI_Award(pk, r)
 	default:
@@ -90,6 +94,16 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 
 func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (*ParsedPacket, error) {
 	return nil, nil
+}
+
+func packetAutoReadName[T any](r *bytes.Reader, order binary.ByteOrder, m map[string]any, name string) error {
+	var v T
+	err := binary.Read(r, order, &v)
+	if name == "" {
+		name = fmt.Sprintf("field%02d", len(m))
+	}
+	m[name] = v
+	return err
 }
 
 func packetReadLenString(r *bytes.Reader) (string, error) {

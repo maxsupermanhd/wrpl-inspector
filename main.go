@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"net/http"
 	"os"
@@ -428,6 +429,10 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 			uiShowReplayPackets(rpl)
 			imgui.EndTabItem()
 		}
+		if imgui.BeginTabItem("packet values") {
+			uiShowReplayPacketVals(rpl)
+			imgui.EndTabItem()
+		}
 		imgui.EndTabBar()
 	}
 }
@@ -445,6 +450,74 @@ func analyseGetTimes(packets []*wrpl.WRPLRawPacket) []float32 {
 		values[t]++
 	}
 	return values
+}
+
+var (
+	pvProcessed    = false
+	pvKeys         []string
+	pvKeysMaxWidth float32
+	pvVals         = [][]float32{}
+	pvViewOffset   = int32(0)
+	pvViewSize     = int32(512)
+)
+
+func uiShowReplayPacketVals(rpl *parsedReplay) {
+	if !pvProcessed {
+		pvProcessed = true
+		for _, pk := range rpl.Replay.Packets {
+			if pk.Parsed == nil {
+				continue
+			}
+			if pk.Parsed.Name != "position" {
+				continue
+			}
+			if pvKeys == nil {
+				pvKeys = slices.Collect(maps.Keys(pk.Parsed.Props))
+				slices.Sort(pvKeys)
+				pvVals = make([][]float32, len(pvKeys))
+			}
+			for ki, k := range pvKeys {
+				vv := float32(0)
+				v, ok := pk.Parsed.Props[k]
+				if ok {
+					switch vt := v.(type) {
+					case uint8:
+						vv = float32(vt)
+					case uint16:
+						vv = float32(vt)
+					case uint32:
+						vv = float32(vt)
+					case uint64:
+						vv = float32(vt)
+					case int8:
+						vv = float32(vt)
+					case int16:
+						vv = float32(vt)
+					case int32:
+						vv = float32(vt)
+					case int64:
+						vv = float32(vt)
+					}
+				}
+				pvVals[ki] = append(pvVals[ki], vv)
+			}
+		}
+		for _, k := range pvKeys {
+			pvKeysMaxWidth = max(pvKeysMaxWidth, imgui.CalcTextSize(k).X)
+		}
+	}
+
+	imgui.SliderInt("offset", &pvViewOffset, 0, int32(len(pvVals[0]))-1)
+	imgui.DragInt("size", &pvViewSize)
+
+	if imgui.BeginChildStr("values over time") {
+		for i, v := range pvVals {
+			imgui.SetNextItemWidth(imgui.ContentRegionAvail().X - pvKeysMaxWidth)
+			imgui.PlotLinesFloatPtr(pvKeys[i], &v[pvViewOffset], min(int32(len(pvVals[0]))-pvViewOffset, pvViewSize))
+		}
+		imgui.EndChild()
+	}
+
 }
 
 func uiShowReplaySummary(rpl *parsedReplay) {
@@ -684,13 +757,30 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 					imgui.TableNextColumn()
 					imgui.TextUnformatted(strconv.Itoa(int(pk.PacketType)))
 					imgui.TableNextColumn()
-					payload := packets[i].PacketPayload
-					if len(payload) > 128 {
-						payload = payload[:128]
-					}
+					payload := pk.PacketPayload
 					switch *mode {
 					case 1:
-						imgui.TextUnformatted(hex.EncodeToString(payload))
+						if inRange(packets, i-1) {
+							dl := imgui.WindowDrawList()
+							rectSize := imgui.CalcTextSize("00")
+							payloadPrev := packets[i-1].PacketPayload
+							var byteNum int
+							for byteNum = range len(payload) {
+								byteStr := fmt.Sprintf("%02x", payload[byteNum])
+								if byteNum < len(payloadPrev) && payloadPrev[byteNum] != payload[byteNum] {
+									cursorPos := imgui.CursorScreenPos()
+									dl.AddRectFilled(cursorPos, cursorPos.Add(rectSize), 0x4400ffff)
+								}
+								imgui.TextUnformatted(byteStr)
+								imgui.SameLine()
+							}
+						} else {
+							var byteNum int
+							for byteNum = range len(payload) {
+								imgui.TextUnformatted(fmt.Sprintf("%02x", payload[byteNum]))
+								imgui.SameLine()
+							}
+						}
 					case 2:
 						imgui.TextUnformatted(bytesToChar(payload))
 					default:
@@ -784,10 +874,10 @@ func uiShowPacket(pk *wrpl.WRPLRawPacket) {
 }
 
 func uiShowParsedPacket(pk *wrpl.WRPLRawPacket) {
+	imgui.TextUnformatted("Packet name: " + pk.Parsed.Name)
 	if pk.ParseError != nil {
-		imgui.TextColored(imgui.NewVec4(0xaa, 0x33, 0x33, 0xff), pk.ParseError.Error())
+		imgui.TextUnformatted("Parse error: " + pk.ParseError.Error())
 	}
-	imgui.TextUnformatted(pk.Parsed.Name)
 	imgui.InputTextMultiline("## parsed props", &pk.Parsed.PropsJSON, imgui.ContentRegionAvail(), 0, nil)
 }
 
