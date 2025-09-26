@@ -142,7 +142,7 @@ func main() {
 			log.Warn().Err(err).Str("path", loadPath).Msg("failed to open")
 			continue
 		}
-		wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true)
+		wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true, true)
 		log.Err(err).Str("path", loadPath).Msg("loading replay")
 		if err != nil {
 			continue
@@ -332,7 +332,7 @@ func openSingleReplayFile(filePath string) error {
 	if err != nil {
 		return err
 	}
-	wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true)
+	wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true, true)
 	if err != nil {
 		return err
 	}
@@ -445,6 +445,10 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 		}
 		if imgui.BeginTabItem("settings") {
 			uiShowBigEditField(rpl.Replay.SettingsJSON)
+			imgui.EndTabItem()
+		}
+		if imgui.BeginTabItem("results") {
+			uiShowBigEditField(rpl.Replay.ResultsJSON)
 			imgui.EndTabItem()
 		}
 		if imgui.BeginTabItem("packets") {

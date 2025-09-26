@@ -21,6 +21,7 @@ A golang library and dear-imgui ui to explore War Thunder replay format
 - Opening segmented server replay and combining them
 - Parsing most of the static binary header
 - Showing settings BLK (if present) (via `wt_ext_cli`)
+- Showing results BLK (if present) (via `wt_ext_cli`)
 - Opening and parsing packet stream
 - Parsing chat packets
 - Parsing award packets

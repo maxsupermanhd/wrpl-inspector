@@ -34,6 +34,8 @@ type WRPL struct {
 	Settings     map[string]any
 	SettingsJSON string
 	Packets      []*WRPLRawPacket
+	Results      map[string]any
+	ResultsJSON  string
 }
 
 func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
@@ -43,7 +45,7 @@ func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err e
 	parts := map[int]*WRPL{}
 	var sessionID uint64
 	for i, r := range replayBytes {
-		rpl, err := parser.ReadWRPL(bytes.NewReader(r), true, true)
+		rpl, err := parser.ReadWRPL(bytes.NewReader(r), true, true, true)
 		if err != nil {
 			return nil, fmt.Errorf("parsing replay part file %d: %w", i, err)
 		}
@@ -75,7 +77,7 @@ func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err e
 	return
 }
 
-func (parser *WRPLParser) ReadWRPL(r io.Reader, parseSettings, parsePackets bool) (ret *WRPL, err error) {
+func (parser *WRPLParser) ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (ret *WRPL, err error) {
 	ret = &WRPL{}
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
@@ -85,32 +87,54 @@ func (parser *WRPLParser) ReadWRPL(r io.Reader, parseSettings, parsePackets bool
 		return nil, fmt.Errorf("wrong magic (got %v)", ret.Header.Magic)
 	}
 
-	if ret.Header.SettingsBLKSize > 0 {
+	if ret.Header.SettingsBLKSize > 0 && parseSettings {
 		settingsBlock := make([]byte, ret.Header.SettingsBLKSize)
 		_, err := io.ReadFull(r, settingsBlock)
 		if err != nil {
 			return ret, fmt.Errorf("reading settings blk: %w", err)
 		}
-		if parseSettings {
-			ret.Settings, err = parser.parseBlk(settingsBlock)
-			if err != nil {
-				return ret, fmt.Errorf("parsing settings blk: %w", err)
-			}
-			settingsReadableBytes, _ := json.MarshalIndent(ret.Settings, "", "\t")
-			ret.SettingsJSON = string(settingsReadableBytes)
+		ret.Settings, err = parser.parseBlk(settingsBlock)
+		if err != nil {
+			return ret, fmt.Errorf("parsing settings blk: %w", err)
 		}
+		settingsReadableBytes, _ := json.MarshalIndent(ret.Settings, "", "\t")
+		ret.SettingsJSON = string(settingsReadableBytes)
 	}
 
 	if parsePackets {
+		if !parseSettings {
+			_, err := r.Seek(int64(ret.Header.SettingsBLKSize), io.SeekCurrent)
+			if err != nil {
+				return ret, fmt.Errorf("seeking for packets")
+			}
+		}
 		packetsStream, err := zlib.NewReader(r)
 		if err != nil {
 			return ret, fmt.Errorf("opening zlib packets stream: %w", err)
 		}
+		defer packetsStream.Close()
 
 		ret.Packets, err = parser.parsePacketStream(packetsStream)
 		if err != nil {
 			return nil, fmt.Errorf("parsing packet stream: %w", err)
 		}
+	}
+
+	if ret.Header.ResultsBlkOffset > 0 && parseResults {
+		_, err := r.Seek(int64(ret.Header.ResultsBlkOffset), io.SeekStart)
+		if err != nil {
+			return ret, fmt.Errorf("seeking for results blk")
+		}
+		resultsBlock, err := io.ReadAll(r)
+		if err != nil {
+			return ret, fmt.Errorf("reading results blk: %w", err)
+		}
+		ret.Results, err = parser.parseBlk(resultsBlock)
+		if err != nil {
+			return ret, fmt.Errorf("parsing results blk: %w", err)
+		}
+		resultsReadableBytes, _ := json.MarshalIndent(ret.Results, "", "\t")
+		ret.ResultsJSON = string(resultsReadableBytes)
 	}
 
 	return

@@ -33,7 +33,7 @@ type WRPLHeader struct {
 	Raw_BattleType       [128]byte
 	Raw_Environment      [128]byte
 	Raw_Visibility       [32]byte
-	Raw_ResultsBlkOffset int32
+	ResultsBlkOffset     int32
 	Difficulty           byte
 	Raw_Unknown0         [35]byte
 	SessionType          uint32
