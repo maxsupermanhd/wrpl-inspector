@@ -56,7 +56,9 @@ func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err e
 				return nil, fmt.Errorf("multiple sessions %016x and %016x at file %d", sessionID, rpl.Header.SessionID, i)
 			}
 		}
-		parts[int(rpl.Header.ReplayPartNumber)] = rpl
+		if rpl.Header.IsServer() {
+			parts[int(rpl.Header.ReplayPartNumber)] = rpl
+		}
 	}
 	keys := slices.Collect(maps.Keys(parts))
 	slices.Sort(keys)
