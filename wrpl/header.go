@@ -23,6 +23,8 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
+	"strconv"
 )
 
 type WRPLHeader struct {
@@ -62,4 +64,20 @@ func (h *WRPLHeader) Hash() string {
 	}
 	s := sha256.Sum256(buf.Bytes())
 	return hex.EncodeToString(s[:])
+}
+
+func (h *WRPLHeader) SessionHEX() string {
+	return fmt.Sprintf("%016x", h.SessionID)
+}
+
+func (h *WRPLHeader) IsServer() bool {
+	return h.Raw_Unknown2[1] == 0x5a
+}
+
+func (h *WRPLHeader) Describe() string {
+	rec := " Client"
+	if h.IsServer() {
+		rec = " Server part " + strconv.Itoa(int(h.ReplayPartNumber))
+	}
+	return h.SessionHEX() + rec
 }
