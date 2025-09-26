@@ -26,6 +26,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"math"
 	"net/http"
@@ -237,20 +238,27 @@ func uiShowMainWindow() {
 	}
 }
 
+type discoveredSession struct {
+	location   string
+	sessionID  string
+	wrplPath   string
+	wrplHeader wrpl.WRPLHeader
+}
+
 var (
-	wrplDiscoveryDirs              = []string{``}
-	wrplDiscoveryFoundReplayPaths  = []string{}
-	wrplDiscoverySelectedReplay    = ""
-	wrplDiscoveryComplete          = false
-	wrplDiscoveryDownloadSessionID = ""
-	wrplDiscoveryDownloadErr       = error(nil)
+	wrplDiscoveryDirs     = []string{}
+	wrplDiscoveryFound    = []discoveredSession{}
+	wrplDiscoveryComplete = false
+	wrplDiscoveryInput    = ""
+	wrplDiscoveryInputErr = error(nil)
 )
 
 func uiShowBrowseTab() {
 	imgui.TextUnformatted("Welcome to wrpl-inspector")
 	if !wrplDiscoveryComplete {
 		wrplDiscoveryComplete = true
-
+		wrplDiscoveryFound = []discoveredSession{}
+		wrplDiscoveryDirs = []string{`fetchedReplays`}
 		homedir, err := os.UserHomeDir()
 		if err == nil {
 			wrplDiscoveryDirs = append(wrplDiscoveryDirs,
@@ -258,60 +266,140 @@ func uiShowBrowseTab() {
 				filepath.Join(homedir, `.local/share/Steam/steamapps/common/War Thunder/Replays`),
 			)
 		}
-		for _, dirPath := range wrplDiscoveryDirs {
-			dir, err := os.ReadDir(dirPath)
-			if err != nil {
-				continue
-			}
-			for _, dirEntry := range dir {
-				if dirEntry.IsDir() {
-					continue
+		currDir, err := os.ReadDir(".")
+		if err == nil {
+			for _, v := range currDir {
+				if v.IsDir() && strings.HasPrefix(v.Name(), "replays") {
+					wrplDiscoveryDirs = append(wrplDiscoveryDirs, v.Name())
 				}
-				if !strings.HasSuffix(dirEntry.Name(), ".wrpl") {
-					continue
-				}
-				wrplDiscoveryFoundReplayPaths = append(wrplDiscoveryFoundReplayPaths, filepath.Join(dirPath, dirEntry.Name()))
 			}
 		}
+		slices.Sort(wrplDiscoveryDirs)
+		for _, dirPath := range wrplDiscoveryDirs {
+			filepath.WalkDir(dirPath, func(p string, d fs.DirEntry, err error) error {
+				if err != nil {
+					if !errors.Is(err, os.ErrNotExist) {
+						log.Err(err).Msg("filepath walk")
+					}
+					return nil
+				}
+				if d.IsDir() {
+					return nil
+				}
+				if !strings.HasSuffix(d.Name(), ".wrpl") {
+					return nil
+				}
+
+				fp, err := os.Open(p)
+				if err != nil {
+					log.Err(err).Str("path", p).Msg("opening replay file")
+					return nil
+				}
+				defer fp.Close()
+				r, err := parser.ReadWRPL(fp, false, false, false)
+				if err != nil {
+					log.Err(err).Str("path", p).Msg("parsing replay file")
+					return nil
+				}
+				wrplDiscoveryFound = append(wrplDiscoveryFound, discoveredSession{
+					location:   dirPath,
+					sessionID:  r.Header.SessionHEX(),
+					wrplPath:   p,
+					wrplHeader: r.Header,
+				})
+				return nil
+			})
+		}
+
+		slices.SortFunc(wrplDiscoveryFound, func(a, b discoveredSession) int {
+			r := strings.Compare(a.location, b.location)
+			if r != 0 {
+				return r
+			}
+			r = strings.Compare(a.sessionID, b.sessionID)
+			if r != 0 {
+				return r
+			}
+			return strings.Compare(a.wrplPath, b.wrplPath)
+		})
+
 	}
 
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Open replay:")
 	imgui.SameLine()
-	imgui.SetNextItemWidth(250)
-	imgui.InputTextWithHint("##downloadid", "", &wrplDiscoveryDownloadSessionID, 0, func(data imgui.InputTextCallbackData) int { return 0 })
+	imgui.SetNextItemWidth(350)
+	imgui.InputTextWithHint("##downloadid", "", &wrplDiscoveryInput, 0, func(data imgui.InputTextCallbackData) int { return 0 })
 	imgui.SameLine()
 	if imgui.Button("Download from hex sid") {
-		wrplDiscoveryDownloadErr = fetchServerReplay(wrplDiscoveryDownloadSessionID)
+		wrplDiscoveryInputErr = fetchServerReplay(wrplDiscoveryInput)
 	}
 	imgui.SameLine()
 	if imgui.Button("Open downloaded sid") {
-		wrplDiscoveryDownloadErr = openSegmentedReplayFolder(filepath.Join("fetchedReplays", wrplDiscoveryDownloadSessionID))
+		wrplDiscoveryInputErr = openSegmentedReplayFolder(filepath.Join("fetchedReplays", wrplDiscoveryInput))
 	}
 	imgui.SameLine()
 	if imgui.Button("Open single file") {
-		wrplDiscoveryDownloadErr = openSingleReplayFile(wrplDiscoveryDownloadSessionID)
+		wrplDiscoveryInputErr = openSingleReplayFile(wrplDiscoveryInput)
 	}
 
-	if wrplDiscoveryDownloadErr != nil {
-		imgui.TextUnformatted("Error: " + wrplDiscoveryDownloadErr.Error())
+	if wrplDiscoveryInputErr != nil {
+		imgui.TextUnformatted("Error: " + wrplDiscoveryInputErr.Error())
 	}
 
-	imgui.TextUnformatted(fmt.Sprintf("Found %d local replays", len(wrplDiscoveryFoundReplayPaths)))
+	imgui.TextUnformatted(fmt.Sprintf("Found %d replay files", len(wrplDiscoveryFound)))
+	imgui.SameLine()
+	uiHelpMarker("Searched following locations:\n" + strings.Join(wrplDiscoveryDirs, "\n") + "\n\nAlso will detect directories in work dir that start with \"replay\"")
 
-	if imgui.BeginListBoxV("##local replays", imgui.ContentRegionAvail()) {
-		for i := len(wrplDiscoveryFoundReplayPaths) - 1; i >= 0; i-- {
-			v := wrplDiscoveryFoundReplayPaths[i]
-			isSelected := v == wrplDiscoverySelectedReplay
-			if imgui.SelectableBoolV(v, isSelected, 0, imgui.Vec2{}) {
-				if wrplDiscoverySelectedReplay == v {
-					openSingleReplayFile(wrplDiscoverySelectedReplay)
-				} else {
-					wrplDiscoverySelectedReplay = v
+	if imgui.BeginChildStr("##found replays child") {
+		for i := 0; i < len(wrplDiscoveryFound); i++ {
+			currLoc := wrplDiscoveryFound[i].location
+			if imgui.TreeNodeStr("location " + currLoc + "##" + strconv.Itoa(i)) {
+				for ; i < len(wrplDiscoveryFound) && wrplDiscoveryFound[i].location == currLoc; i++ {
+					currSession := wrplDiscoveryFound[i].sessionID
+					if imgui.TreeNodeExStr("session " + currSession + "##" + strconv.Itoa(i)) {
+						if wrplDiscoveryFound[i].wrplHeader.IsServer() {
+							imgui.SameLine()
+							if imgui.SmallButton("parse server replays" + "##" + strconv.Itoa(i)) {
+								openSegmentedReplayFolder(filepath.Dir(wrplDiscoveryFound[i].wrplPath))
+							}
+						} else {
+							imgui.SameLine()
+							if imgui.SmallButton("download server replay" + "##" + strconv.Itoa(i)) {
+								fetchServerReplay(wrplDiscoveryFound[i].sessionID)
+							}
+						}
+						for ; i < len(wrplDiscoveryFound) && wrplDiscoveryFound[i].sessionID == currSession; i++ {
+							imgui.PushIDInt(int32(i))
+							v := wrplDiscoveryFound[i]
+							if imgui.SmallButton("parse" + "##" + strconv.Itoa(i)) {
+								wrplDiscoveryInputErr = openSingleReplayFile(v.wrplPath)
+							}
+							imgui.SameLine()
+							imgui.TextUnformatted(v.wrplHeader.Describe())
+							imgui.SameLine()
+							imgui.TextUnformatted(v.wrplPath)
+							imgui.PopID()
+						}
+						imgui.TreePop()
+					} else {
+						if wrplDiscoveryFound[i].wrplHeader.IsServer() {
+							imgui.SameLine()
+							if imgui.SmallButton("parse server replays" + "##" + strconv.Itoa(i)) {
+								openSegmentedReplayFolder(filepath.Dir(wrplDiscoveryFound[i].wrplPath))
+							}
+						}
+						for ; i < len(wrplDiscoveryFound) && wrplDiscoveryFound[i].sessionID == currSession; i++ {
+						}
+					}
+				}
+				imgui.TreePop()
+			} else {
+				for ; i < len(wrplDiscoveryFound) && wrplDiscoveryFound[i].location == currLoc; i++ {
 				}
 			}
 		}
-		imgui.EndListBox()
+		imgui.EndChild()
 	}
 }
 
@@ -1037,6 +1125,14 @@ func uiTextParam(label, value string) {
 		imgui.SetClipboardText(value)
 	}
 	imgui.PopID()
+}
+
+func uiHelpMarker(content string) {
+	imgui.TextDisabled("(?)")
+	if imgui.BeginItemTooltip() {
+		imgui.TextUnformatted(content)
+		imgui.EndTooltip()
+	}
 }
 
 func inRange[E any, S []E](s S, l int32) bool {
