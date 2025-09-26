@@ -675,6 +675,11 @@ func uiShowParsed(rpl *parsedReplay) {
 		}
 	}
 
+	if len(rpl.ParsedPacketNames) == 0 {
+		imgui.TextUnformatted("no parsed packets present")
+		return
+	}
+
 	imgui.ComboStrarr("packet", &rpl.ParsedPacketsCurrentName, rpl.ParsedPacketNames, int32(len(rpl.ParsedPacketNames)))
 
 	if imgui.BeginChildStr("##parsedView") {
