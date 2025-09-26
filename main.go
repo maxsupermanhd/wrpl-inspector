@@ -384,9 +384,10 @@ func uiShowBrowseTab() {
 			if imgui.TreeNodeStr("location " + wrplDiscoveryFoundTree[li][0][0].location + "##" + strconv.Itoa(li)) {
 				for si := range wrplDiscoveryFoundTree[li] {
 					imgui.PushIDInt(int32(si))
-					isSessionOpen := imgui.TreeNodeExStr("session " + wrplDiscoveryFoundTree[li][si][0].sessionID + "##" + strconv.Itoa(si))
-					imgui.SameLine()
-					imgui.TextUnformatted(wrplDiscoveryFoundTree[li][si][0].wrplHeader.StartTimeFormatted())
+					isSessionOpen := imgui.TreeNodeExStr("session " +
+						wrplDiscoveryFoundTree[li][si][0].sessionID + " " +
+						wrplDiscoveryFoundTree[li][si][0].wrplHeader.StartTimeFormatted() +
+						"##" + strconv.Itoa(si))
 					if wrplDiscoveryFoundTree[li][si][0].wrplHeader.IsServer() {
 						imgui.SameLine()
 						if imgui.SmallButton("parse server replays" + "##" + strconv.Itoa(si)) {
