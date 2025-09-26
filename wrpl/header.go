@@ -1,3 +1,21 @@
+/*
+	wrpl: War Thunder replay parsing library (golang)
+	Copyright (C) 2025 flexcoral
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Affero General Public License as published
+	by the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Affero General Public License for more details.
+
+	You should have received a copy of the GNU Affero General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 package wrpl
 
 import (
@@ -6,24 +24,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 )
-
-// type WRPLHeader struct {
-// 	Magic                [4]byte
-// 	Version              int32
-// 	Raw_Level            [128]byte
-// 	Raw_LevelSettings    [260]byte
-// 	Raw_BattleType       [128]byte
-// 	Raw_Environment      [128]byte
-// 	Raw_Visibility       [32]byte
-// 	Raw_ResultsBlkOffset int32
-// 	Raw_Unknown0         [92]byte
-// 	Raw_MissionLoc       [128]byte
-// 	Raw_Unknown1         [8]byte
-// 	Raw_Something0       int16
-// 	Raw_Unknown2         [50]byte
-// 	Raw_BattleType2      [256]byte
-// 	Raw_Unknown3         [2]byte
-// }
 
 type WRPLHeader struct {
 	Magic                [4]byte
