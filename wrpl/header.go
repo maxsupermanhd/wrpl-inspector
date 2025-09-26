@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 type WRPLHeader struct {
@@ -68,6 +69,10 @@ func (h *WRPLHeader) Hash() string {
 
 func (h *WRPLHeader) SessionHEX() string {
 	return fmt.Sprintf("%016x", h.SessionID)
+}
+
+func (h *WRPLHeader) StartTimeFormatted() string {
+	return time.Unix(int64(h.StartTime), 0).Format(time.DateTime)
 }
 
 func (h *WRPLHeader) IsServer() bool {
