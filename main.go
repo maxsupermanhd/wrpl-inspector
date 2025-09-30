@@ -616,7 +616,7 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 	fieldIndexes := []int{}
 	fieldCount := 0
 	for i := range rfPkType.NumField() {
-		if rfPkType.Field(i).Tag.Get("reflect_view_hidden") != "true" {
+		if rfPkType.Field(i).Tag.Get("reflectViewHidden") != "true" {
 			fieldNames = append(fieldNames, rfPkType.Field(i).Name)
 			fieldIndexes = append(fieldIndexes, i)
 			fieldCount++

@@ -60,6 +60,9 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 		Props: map[string]any{},
 		Data:  nil,
 	}
+	defer func() {
+		ret.Data = parsed
+	}()
 	_, err = r.ReadByte()
 	if err != nil {
 		return
@@ -81,7 +84,6 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 		return
 	}
 
-	ret.Data = parsed
 	return
 }
 
@@ -108,7 +110,9 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x73}): // ^00025873 some rando noise
 	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x74}): // ^00025874 model info (has steering)
 	// case bytes.Equal(signature[:], []byte{0x00, 0x03, 0x58, 0x43}): // ^00035843 model info (has turret angles)
-	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x78}): // ^00025878
+	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x58}): // ^00035843 kill screen? (has killer's vehicle name)
+		return parsePacketMPI_Kill(pk, r)
+	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x78}): // ^00025878 awards
 		return parsePacketMPI_Award(pk, r)
 	default:
 		return &ParsedPacket{
@@ -121,10 +125,10 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 }
 
 type ParsedPacketAward struct {
-	Always0xF0     string `reflect_view_hidden:"true"`
+	Always0xF0     string `reflectViewHidden:"true"`
 	AwardType      byte
-	Always0x003e   string `reflect_view_hidden:"true"`
-	Always0x000000 string `reflect_view_hidden:"true"`
+	Always0x003E   string `reflectViewHidden:"true"`
+	Always0x000000 string `reflectViewHidden:"true"`
 	Player         byte
 	AwardName      string
 	Rem            string
@@ -137,6 +141,9 @@ func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket
 		Props: map[string]any{},
 		Data:  nil,
 	}
+	defer func() {
+		ret.Data = parsed
+	}()
 	parsed.Always0xF0, err = readToHexStr(r, 1)
 	if err != nil {
 		return
@@ -145,7 +152,7 @@ func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket
 	if err != nil {
 		return
 	}
-	parsed.Always0x003e, err = readToHexStr(r, 2)
+	parsed.Always0x003E, err = readToHexStr(r, 2)
 	if err != nil {
 		return
 	}
@@ -166,7 +173,59 @@ func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket
 		return
 	}
 
-	ret.Data = parsed
+	return
+}
+
+type ParsedPacketKill struct {
+	Always0xF0     string `reflectViewHidden:"true"`
+	Control        byte
+	DamageType     byte
+	Always0x00FE3F string `reflectViewHidden:"true"`
+	KillerID       byte
+	Always0x000000 string `reflectViewHidden:"true"`
+	KillerVehicle  string
+	Rem            string
+}
+
+func parsePacketMPI_Kill(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
+	parsed := ParsedPacketKill{}
+	ret = &ParsedPacket{
+		Name:  "kill",
+		Props: map[string]any{},
+		Data:  nil,
+	}
+	defer func() {
+		ret.Data = parsed
+	}()
+	parsed.Always0xF0, err = readToHexStr(r, 1)
+	if err != nil {
+		return
+	}
+	parsed.Control, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	parsed.DamageType = parsed.Control & 0xF0
+	parsed.Always0x00FE3F, err = readToHexStr(r, 3)
+	if err != nil {
+		return
+	}
+	parsed.KillerID, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	parsed.Always0x000000, err = readToHexStr(r, 3)
+	if err != nil {
+		return
+	}
+	parsed.KillerVehicle, err = packetReadLenString(r)
+	if err != nil {
+		return
+	}
+	parsed.Rem, err = readToHexStrFull(r)
+	if err != nil {
+		return
+	}
 	return
 }
 
