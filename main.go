@@ -337,7 +337,9 @@ func uiShowBrowseTab() {
 		wrplDiscoveryFoundTree = make([][][]*discoveredSession, len(foundMapped))
 		for li, lv := range slices.Sorted(maps.Keys(foundMapped)) {
 			wrplDiscoveryFoundTree[li] = make([][]*discoveredSession, len(foundMapped[lv]))
-			for si, sv := range slices.Sorted(maps.Keys(foundMapped[lv])) {
+			sfm := slices.Sorted(maps.Keys(foundMapped[lv]))
+			slices.Reverse(sfm)
+			for si, sv := range sfm {
 				wrplDiscoveryFoundTree[li][si] = make([]*discoveredSession, len(foundMapped[lv][sv]))
 				for pi, pv := range slices.Sorted(maps.Keys(foundMapped[lv][sv])) {
 					wrplDiscoveryFoundTree[li][si][pi] = foundMapped[lv][sv][pv]
