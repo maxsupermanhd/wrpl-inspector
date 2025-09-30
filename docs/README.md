@@ -14,7 +14,7 @@ A golang library and dear-imgui ui to explore War Thunder replay format
 
 > [!IMPORTANT]
 > Information provided may be incomplete/innacurate.
-> If you want to propose imporvements feel free to open issue, pull request or contact me via Discord @flexcoral (343418440423309314).
+> If you want to propose imporvements feel free to open issue, pull request or contact me via Discord @flexcoral (343418440423309314) ([invite](https://discord.com/invite/DFsMKWJJPN)).
 
 - Opening multiple individual replay files at the same time
 - Downloading server replay from session ID
