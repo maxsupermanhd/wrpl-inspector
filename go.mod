@@ -4,6 +4,8 @@ go 1.24.0
 
 require github.com/rs/zerolog v1.33.0
 
+require github.com/klauspost/compress v1.18.0 // indirect
+
 require (
 	github.com/AllenDang/cimgui-go v1.4.0
 	github.com/davecgh/go-spew v1.1.1
