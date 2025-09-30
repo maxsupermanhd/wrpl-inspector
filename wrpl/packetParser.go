@@ -121,10 +121,10 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 }
 
 type ParsedPacketAward struct {
-	Always0xF0     string
+	Always0xF0     string `reflect_view_hidden:"true"`
 	AwardType      byte
-	Always0x003e   string
-	Always0x000000 string
+	Always0x003e   string `reflect_view_hidden:"true"`
+	Always0x000000 string `reflect_view_hidden:"true"`
 	Player         byte
 	AwardName      string
 	Rem            string

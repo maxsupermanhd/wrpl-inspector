@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 )
 
 type WRPLRawPacket struct {
@@ -33,6 +34,10 @@ type WRPLRawPacket struct {
 	PacketPayload []byte
 	Parsed        *ParsedPacket
 	ParseError    error
+}
+
+func (pk *WRPLRawPacket) Time() time.Duration {
+	return time.Duration(pk.CurrentTime/256) * time.Millisecond
 }
 
 func (parser *WRPLParser) parsePacketStream(r io.Reader) (ret []*WRPLRawPacket, err error) {

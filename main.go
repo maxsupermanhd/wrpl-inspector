@@ -610,9 +610,15 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 		return
 	}
 	rfPkType := reflect.TypeOf(packets[0].Parsed.Data)
-	fieldNames := make([]string, rfPkType.NumField())
-	for i := range len(fieldNames) {
-		fieldNames[i] = rfPkType.Field(i).Name
+	fieldNames := []string{}
+	fieldIndexes := []int{}
+	fieldCount := 0
+	for i := range rfPkType.NumField() {
+		if rfPkType.Field(i).Tag.Get("reflect_view_hidden") != "true" {
+			fieldNames = append(fieldNames, rfPkType.Field(i).Name)
+			fieldIndexes = append(fieldIndexes, i)
+			fieldCount++
+		}
 	}
 	tableFlags := imgui.TableFlagsRowBg |
 		imgui.TableFlagsBordersV |
@@ -622,7 +628,7 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 		// imgui.TableFlagsSortTristate |
 		imgui.TableFlagsReorderable |
 		imgui.TableFlagsResizable
-	if imgui.BeginTableV("##context", 2+int32(len(fieldNames)), tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
+	if imgui.BeginTableV("##context", 2+int32(fieldCount), tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
 		imgui.TableSetupColumn("num")
 		imgui.TableSetupColumn("time")
 		for _, n := range fieldNames {
@@ -634,11 +640,11 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(strconv.Itoa(i))
 			imgui.TableNextColumn()
-			imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime)))
+			imgui.TextUnformatted(pk.Time().String())
 			rfPkVal := reflect.ValueOf(pk.Parsed.Data)
 			for i := range fieldNames {
 				imgui.TableNextColumn()
-				rfPkField := rfPkVal.Field(i)
+				rfPkField := rfPkVal.Field(fieldIndexes[i])
 				if rfPkField.Kind() == reflect.String {
 					imgui.TextUnformatted(rfPkField.String())
 				} else if rfPkField.CanUint() {
@@ -962,6 +968,12 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 		imgui.TextUnformatted("no packets")
 		return
 	}
+
+	numLinesInRow := 1
+	if *mode > 2 {
+		numLinesInRow = 2
+	}
+
 	switch *mode {
 	case 0:
 		if *selected >= 0 && int(*selected) < len(packets) {
@@ -1002,11 +1014,16 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 					pk := packets[i]
 					imgui.TableNextColumn()
 					imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime)))
+					if numLinesInRow > 1 {
+						imgui.TextUnformatted(pk.Time().String())
+					}
+					imgui.TableNextColumn()
 					if inRange(packets, i-1) {
-						imgui.TableNextColumn()
 						imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime) - int(packets[i-1].CurrentTime)))
+						if numLinesInRow > 1 {
+							imgui.TextUnformatted((pk.Time() - packets[i-1].Time()).String())
+						}
 					} else {
-						imgui.TableNextColumn()
 						imgui.TextUnformatted("0")
 					}
 					imgui.TableNextColumn()
