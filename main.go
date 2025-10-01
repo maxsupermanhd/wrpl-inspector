@@ -89,7 +89,7 @@ func main() {
 	flag.Parse()
 
 	var err error
-	parser, err = wrpl.NewWRPLParser("cache.json", `./wt_ext_cli`)
+	parser, err = wrpl.NewWRPLParser("cache.json")
 	if err != nil {
 		panic(err)
 	}
@@ -1106,6 +1106,8 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 
 func uiShowPacket(pk *wrpl.WRPLRawPacket) {
 	uiTextParam("Timestamp:", strconv.Itoa(int(pk.CurrentTime)))
+	imgui.SameLine()
+	imgui.TextUnformatted(pk.Time().String())
 	imgui.SameLine()
 	imgui.TextUnformatted(fmt.Sprintf("Packet type: %d", int(pk.PacketType)))
 	imgui.SameLine()

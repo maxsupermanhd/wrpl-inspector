@@ -25,8 +25,7 @@ import (
 )
 
 type WRPLParser struct {
-	cacheFilePath   string
-	wtExtCliBinPath string
+	cacheFilePath string
 	// don't forget to lock with cacheLock
 	cache     parserCache
 	cacheLock sync.Mutex
@@ -36,10 +35,9 @@ type parserCache struct {
 	BlkSizes map[string]int
 }
 
-func NewWRPLParser(cacheFilePath string, wtExtCliBinPath string) (ret *WRPLParser, err error) {
+func NewWRPLParser(cacheFilePath string) (ret *WRPLParser, err error) {
 	ret = &WRPLParser{
-		cacheFilePath:   cacheFilePath,
-		wtExtCliBinPath: wtExtCliBinPath,
+		cacheFilePath: cacheFilePath,
 		cache: parserCache{
 			BlkSizes: map[string]int{},
 		},
