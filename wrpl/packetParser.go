@@ -29,11 +29,13 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
+var (
+	ErrUnknownPacket = errors.New("unknown packet")
+)
+
 type ParsedPacket struct {
-	Name      string
-	Props     map[string]any
-	PropsJSON string
-	Data      any
+	Name string
+	Data any
 }
 
 func parsePacket(pk *WRPLRawPacket) (*ParsedPacket, error) {
@@ -43,7 +45,7 @@ func parsePacket(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	case PacketTypeMPI:
 		return parsePacketMPI(pk)
 	default:
-		return nil, errors.New("unknown packet")
+		return nil, ErrUnknownPacket
 	}
 }
 
@@ -58,13 +60,9 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	r := bytes.NewReader(pk.PacketPayload)
 	parsed := ParsedPacketChat{}
 	ret = &ParsedPacket{
-		Name:  "chat",
-		Props: map[string]any{},
-		Data:  nil,
+		Name: "chat",
+		Data: parsed,
 	}
-	defer func() {
-		ret.Data = parsed
-	}()
 	_, err = r.ReadByte()
 	if err != nil {
 		return
@@ -85,7 +83,7 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	if err != nil {
 		return
 	}
-
+	ret.Data = parsed
 	return
 }
 
@@ -112,10 +110,7 @@ func parsePacketMPI(pk *WRPLRawPacket) (pp *ParsedPacket, err error) {
 		pp, err = parsePacketMPI_Award(pk, r)
 	default:
 		pp, err = &ParsedPacket{
-			Name: "unknown mpi packet",
-			Props: map[string]any{
-				"signature": signature,
-			},
+			Name: "unknown mpi packet " + hex.EncodeToString(signature[:]),
 		}, nil
 	}
 	return
@@ -134,9 +129,8 @@ type ParsedPacketAward struct {
 func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
 	parsed := ParsedPacketAward{}
 	ret = &ParsedPacket{
-		Name:  "award",
-		Props: map[string]any{},
-		Data:  nil,
+		Name: "award",
+		Data: nil,
 	}
 	defer func() {
 		ret.Data = parsed
@@ -187,9 +181,8 @@ type ParsedPacketKill struct {
 func parsePacketMPI_Kill(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
 	parsed := ParsedPacketKill{}
 	ret = &ParsedPacket{
-		Name:  "kill",
-		Props: map[string]any{},
-		Data:  nil,
+		Name: "kill",
+		Data: nil,
 	}
 	defer func() {
 		ret.Data = parsed
@@ -237,9 +230,8 @@ type ParsedPacketCompressedBlobs struct {
 func parsePacketMPI_CompressedBlobs(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
 	parsed := ParsedPacketCompressedBlobs{}
 	ret = &ParsedPacket{
-		Name:  "compressed",
-		Props: map[string]any{},
-		Data:  nil,
+		Name: "compressed",
+		Data: nil,
 	}
 	defer func() {
 		ret.Data = parsed
@@ -288,15 +280,17 @@ type ParsedPacketCompressedBlobs2 struct {
 	Always0xF0     string `reflectViewHidden:"true"`
 	DataCompressed byte
 	Unk0           string
+	Control        byte
+	Unk1           string
+	Unk2           string
 	Blob           string
 }
 
 func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
 	parsed := ParsedPacketCompressedBlobs2{}
 	ret = &ParsedPacket{
-		Name:  "compressed2",
-		Props: map[string]any{},
-		Data:  nil,
+		Name: "compressed2",
+		Data: nil,
 	}
 	defer func() {
 		ret.Data = parsed
@@ -310,11 +304,25 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 		return
 	}
 	if parsed.DataCompressed != 0x01 {
-		return nil, nil
+		return
 	}
-	parsed.Unk0, err = readToHexStr(r, 4)
+	parsed.Unk0, err = readToHexStr(r, 1)
 	if err != nil {
 		return
+	}
+	parsed.Control, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	parsed.Unk1, err = readToHexStr(r, 2)
+	if err != nil {
+		return
+	}
+	if parsed.Control&0xF0 > 0 {
+		parsed.Unk2, err = readToHexStr(r, 1) // perhaps this 0x04 is blk type 4, slim zstd
+		if err != nil {
+			return
+		}
 	}
 	dc, err := zstd.NewReader(r) // 28b52ffd
 	if err != nil {

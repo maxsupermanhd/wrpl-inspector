@@ -21,7 +21,6 @@ package wrpl
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -86,10 +85,6 @@ func (parser *WRPLParser) parsePacketStream(r io.Reader) (ret []*WRPLRawPacket, 
 			PacketPayload: packetPayload,
 		}
 		pk.Parsed, pk.ParseError = parsePacket(pk)
-		if pk.Parsed != nil {
-			parsedJsonBytes, _ := json.MarshalIndent(pk.Parsed.Props, "", "\t")
-			pk.Parsed.PropsJSON = string(parsedJsonBytes)
-		}
 		ret = append(ret, pk)
 	}
 	return

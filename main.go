@@ -567,10 +567,10 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 			uiShowReplayPackets(rpl)
 			imgui.EndTabItem()
 		}
-		if imgui.BeginTabItem("packet values") {
-			uiShowReplayPacketVals(rpl)
-			imgui.EndTabItem()
-		}
+		// if imgui.BeginTabItem("packet values") {
+		// 	uiShowReplayPacketVals(rpl)
+		// 	imgui.EndTabItem()
+		// }
 		if imgui.BeginTabItem("parsed") {
 			uiShowParsed(rpl)
 			imgui.EndTabItem()
@@ -710,79 +710,79 @@ var (
 	pvPacketName   = ""
 )
 
-func uiShowReplayPacketVals(rpl *parsedReplay) {
-	if !pvProcessed {
-		pvProcessed = true
-		for _, pk := range rpl.Replay.Packets {
-			if pk.Parsed == nil {
-				continue
-			}
-			if pk.Parsed.Name != pvPacketName {
-				continue
-			}
-			if pk.Parsed.Props == nil {
-				continue
-			}
-			if pvKeys == nil {
-				pvKeys = slices.Collect(maps.Keys(pk.Parsed.Props))
-				slices.Sort(pvKeys)
-				pvVals = make([][]float32, len(pvKeys))
-			}
-			for ki, k := range pvKeys {
-				vv := float32(0)
-				v, ok := pk.Parsed.Props[k]
-				if ok {
-					switch vt := v.(type) {
-					case uint8:
-						vv = float32(vt)
-					case uint16:
-						vv = float32(vt)
-					case uint32:
-						vv = float32(vt)
-					case uint64:
-						vv = float32(vt)
-					case int8:
-						vv = float32(vt)
-					case int16:
-						vv = float32(vt)
-					case int32:
-						vv = float32(vt)
-					case int64:
-						vv = float32(vt)
-					}
-				}
-				pvVals[ki] = append(pvVals[ki], vv)
-			}
-		}
-		for _, k := range pvKeys {
-			pvKeysMaxWidth = max(pvKeysMaxWidth, imgui.CalcTextSize(k).X)
-		}
-	}
+// func uiShowReplayPacketVals(rpl *parsedReplay) {
+// 	if !pvProcessed {
+// 		pvProcessed = true
+// 		for _, pk := range rpl.Replay.Packets {
+// 			if pk.Parsed == nil {
+// 				continue
+// 			}
+// 			if pk.Parsed.Name != pvPacketName {
+// 				continue
+// 			}
+// 			if pk.Parsed.Props == nil {
+// 				continue
+// 			}
+// 			if pvKeys == nil {
+// 				pvKeys = slices.Collect(maps.Keys(pk.Parsed.Props))
+// 				slices.Sort(pvKeys)
+// 				pvVals = make([][]float32, len(pvKeys))
+// 			}
+// 			for ki, k := range pvKeys {
+// 				vv := float32(0)
+// 				v, ok := pk.Parsed.Props[k]
+// 				if ok {
+// 					switch vt := v.(type) {
+// 					case uint8:
+// 						vv = float32(vt)
+// 					case uint16:
+// 						vv = float32(vt)
+// 					case uint32:
+// 						vv = float32(vt)
+// 					case uint64:
+// 						vv = float32(vt)
+// 					case int8:
+// 						vv = float32(vt)
+// 					case int16:
+// 						vv = float32(vt)
+// 					case int32:
+// 						vv = float32(vt)
+// 					case int64:
+// 						vv = float32(vt)
+// 					}
+// 				}
+// 				pvVals[ki] = append(pvVals[ki], vv)
+// 			}
+// 		}
+// 		for _, k := range pvKeys {
+// 			pvKeysMaxWidth = max(pvKeysMaxWidth, imgui.CalcTextSize(k).X)
+// 		}
+// 	}
 
-	if imgui.InputTextWithHint("packet name", "", &pvPacketName, 0, func(data imgui.InputTextCallbackData) int {
-		pvProcessed = false
-		return 0
-	}) {
-		pvProcessed = false
-	}
+// 	if imgui.InputTextWithHint("packet name", "", &pvPacketName, 0, func(data imgui.InputTextCallbackData) int {
+// 		pvProcessed = false
+// 		return 0
+// 	}) {
+// 		pvProcessed = false
+// 	}
 
-	if len(pvVals) == 0 {
-		imgui.TextUnformatted("no values to show")
-		return
-	}
+// 	if len(pvVals) == 0 {
+// 		imgui.TextUnformatted("no values to show")
+// 		return
+// 	}
 
-	imgui.SliderInt("offset", &pvViewOffset, 0, int32(len(pvVals[0]))-1)
-	imgui.DragInt("size", &pvViewSize)
+// 	imgui.SliderInt("offset", &pvViewOffset, 0, int32(len(pvVals[0]))-1)
+// 	imgui.DragInt("size", &pvViewSize)
 
-	if imgui.BeginChildStr("values over time") {
-		for i, v := range pvVals {
-			imgui.SetNextItemWidth(imgui.ContentRegionAvail().X - pvKeysMaxWidth)
-			imgui.PlotLinesFloatPtr(pvKeys[i], &v[pvViewOffset], min(int32(len(pvVals[0]))-pvViewOffset, pvViewSize))
-		}
-		imgui.EndChild()
-	}
+// 	if imgui.BeginChildStr("values over time") {
+// 		for i, v := range pvVals {
+// 			imgui.SetNextItemWidth(imgui.ContentRegionAvail().X - pvKeysMaxWidth)
+// 			imgui.PlotLinesFloatPtr(pvKeys[i], &v[pvViewOffset], min(int32(len(pvVals[0]))-pvViewOffset, pvViewSize))
+// 		}
+// 		imgui.EndChild()
+// 	}
 
-}
+// }
 
 func uiShowReplaySummary(rpl *parsedReplay) {
 	imgui.TextUnformatted(rpl.LoadedFrom)
@@ -1154,7 +1154,8 @@ func uiShowParsedPacket(pk *wrpl.WRPLRawPacket) {
 	if pk.ParseError != nil {
 		imgui.TextUnformatted("Parse error: " + pk.ParseError.Error())
 	}
-	imgui.InputTextMultiline("## parsed props", &pk.Parsed.PropsJSON, imgui.ContentRegionAvail(), 0, nil)
+	data := spew.Sdump(pk.Parsed.Data)
+	imgui.InputTextMultiline("## parsed props", &data, imgui.ContentRegionAvail(), 0, nil)
 }
 
 func uiShowBigEditField(content string) {
