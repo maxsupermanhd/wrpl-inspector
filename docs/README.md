@@ -20,15 +20,14 @@ A golang library and dear-imgui ui to explore War Thunder replay format
 - Downloading server replay from session ID
 - Opening segmented server replay and combining them
 - Parsing most of the static binary header
-- Showing settings BLK (if present) (via `wt_ext_cli`)
-- Showing results BLK (if present) (via `wt_ext_cli`)
+- Showing settings BLK (if present)
+- Showing results BLK (if present)
 - Opening and parsing packet stream
 - Parsing chat packets
 - Parsing award packets
 
 ## TODOs
 
-- Replace `wt_ext_cli` that is used for BLK parsing (potential massive speed gains on replay opening, BLK chunks were noticed within packets themselves so it will be a pain to read them with external tooling)
 - Make sense of movement packets (type 2 "AircraftSmall")
 - Add exporting options for packets (csv/tsv/sqlite?)
 - Improve replay opening experience, tree view location (directory) > session > files
@@ -45,10 +44,6 @@ This project would've not been here if StatShark devs didn't troll me in their d
 ## License
 
 Both ui and lib (wrpl) are under GNU Affero General Public License v3
-
-Due to how lazy I am parsing of the BLK format is currently done via `wt_ext_cli`
-from Warthunder-Open-Source-Foundation that is licensed under Apache-2.0. Binary is
-Linux ELF and will have to be swapped out if ran on different OS.
 
 In repository root there is a TTF font (HackNerdFontMono-Regular.ttf) that is
 not part of wrpl-inspector distribution and is provided for easier setup until
