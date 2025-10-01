@@ -25,6 +25,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 type ParsedPacket struct {
@@ -87,21 +89,11 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	return
 }
 
-func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
+func parsePacketMPI(pk *WRPLRawPacket) (pp *ParsedPacket, err error) {
 	r := bytes.NewReader(pk.PacketPayload)
 
-	// var objectID, messageID uint16
-	// err := binary.Read(r, binary.LittleEndian, &objectID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// err = binary.Read(r, binary.LittleEndian, &messageID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	signature := [4]byte{}
-	_, err := r.Read(signature[:])
+	_, err = r.Read(signature[:])
 	if err != nil {
 		return nil, err
 	}
@@ -110,18 +102,23 @@ func parsePacketMPI(pk *WRPLRawPacket) (*ParsedPacket, error) {
 	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x73}): // ^00025873 some rando noise
 	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x74}): // ^00025874 model info (has steering)
 	// case bytes.Equal(signature[:], []byte{0x00, 0x03, 0x58, 0x43}): // ^00035843 model info (has turret angles)
+	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x2d}): // ^0002582d zstd blobs (28b52ffd)
+		pp, err = parsePacketMPI_CompressedBlobs2(pk, r)
+	case bytes.Equal(signature[:], []byte{0x00, 0x00, 0x58, 0x22}): // ^00005822 zstd blobs (28b52ffd)
+		pp, err = parsePacketMPI_CompressedBlobs(pk, r)
 	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x58}): // ^00035843 kill screen? (has killer's vehicle name)
-		return parsePacketMPI_Kill(pk, r)
+		pp, err = parsePacketMPI_Kill(pk, r)
 	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x78}): // ^00025878 awards
-		return parsePacketMPI_Award(pk, r)
+		pp, err = parsePacketMPI_Award(pk, r)
 	default:
-		return &ParsedPacket{
+		pp, err = &ParsedPacket{
 			Name: "unknown mpi packet",
 			Props: map[string]any{
 				"signature": signature,
 			},
 		}, nil
 	}
+	return
 }
 
 type ParsedPacketAward struct {
@@ -226,6 +223,108 @@ func parsePacketMPI_Kill(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket,
 	if err != nil {
 		return
 	}
+	return
+}
+
+type ParsedPacketCompressedBlobs struct {
+	Always0xF0 string `reflectViewHidden:"true"`
+	Unk0       string
+	Always0x01 string
+	Unk1       string
+	Blob       string
+}
+
+func parsePacketMPI_CompressedBlobs(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
+	parsed := ParsedPacketCompressedBlobs{}
+	ret = &ParsedPacket{
+		Name:  "compressed",
+		Props: map[string]any{},
+		Data:  nil,
+	}
+	defer func() {
+		ret.Data = parsed
+	}()
+	parsed.Always0xF0, err = readToHexStr(r, 1)
+	if err != nil {
+		return
+	}
+	parsed.Unk0, err = readToHexStr(r, 2)
+	if err != nil {
+		return
+	}
+	parsed.Always0x01, err = readToHexStr(r, 1)
+	if err != nil {
+		return
+	}
+	peek, err := r.ReadByte()
+	if err != nil {
+		return
+	}
+	if peek != 0x01 {
+		err = r.UnreadByte()
+		if err != nil {
+			return
+		}
+	} else {
+		parsed.Always0x01 += "01"
+	}
+	parsed.Unk1, err = readToHexStr(r, 4)
+	if err != nil {
+		return
+	}
+	dc, err := zstd.NewReader(r) // 28b52ffd
+	if err != nil {
+		return
+	}
+	blob, err := io.ReadAll(dc)
+	if err != nil {
+		return
+	}
+	parsed.Blob = hex.Dump(blob)
+	return
+}
+
+type ParsedPacketCompressedBlobs2 struct {
+	Always0xF0     string `reflectViewHidden:"true"`
+	DataCompressed byte
+	Unk0           string
+	Blob           string
+}
+
+func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
+	parsed := ParsedPacketCompressedBlobs2{}
+	ret = &ParsedPacket{
+		Name:  "compressed2",
+		Props: map[string]any{},
+		Data:  nil,
+	}
+	defer func() {
+		ret.Data = parsed
+	}()
+	parsed.Always0xF0, err = readToHexStr(r, 1)
+	if err != nil {
+		return
+	}
+	parsed.DataCompressed, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	if parsed.DataCompressed != 0x01 {
+		return nil, nil
+	}
+	parsed.Unk0, err = readToHexStr(r, 4)
+	if err != nil {
+		return
+	}
+	dc, err := zstd.NewReader(r) // 28b52ffd
+	if err != nil {
+		return
+	}
+	blob, err := io.ReadAll(dc)
+	if err != nil {
+		return
+	}
+	parsed.Blob = hex.Dump(blob)
 	return
 }
 
