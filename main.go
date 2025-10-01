@@ -56,7 +56,6 @@ var (
 	imBackend              backend.Backend[glfwbackend.GLFWWindowFlags]
 	openReplays            = []*parsedReplay{}
 	openReplaysLock        sync.Mutex
-	parser                 *wrpl.WRPLParser
 	pinnedPacketsByContent = []*wrpl.WRPLRawPacket{}
 
 	showDemoWindow bool
@@ -89,11 +88,6 @@ func main() {
 	flag.Parse()
 
 	var err error
-	parser, err = wrpl.NewWRPLParser("cache.json")
-	if err != nil {
-		panic(err)
-	}
-
 	log.Info().Msg("making backend")
 	imBackend, err = backend.CreateBackend(glfwbackend.NewGLFWBackend())
 	if err != nil {
@@ -110,10 +104,9 @@ func main() {
 	imBackend.SetDropCallback(func(p []string) {
 		log.Info().Msgf("drop triggered: %v", p)
 	})
-	imBackend.SetCloseCallback(func() {
-		log.Info().Msg("window closing")
-		parser.WriteCache()
-	})
+	// imBackend.SetCloseCallback(func() {
+	// 	log.Info().Msg("window closing")
+	// })
 	fontBytes, err := os.ReadFile(`HackNerdFontMono-Regular.ttf`)
 	if err != nil {
 		panic(err)
@@ -143,7 +136,7 @@ func main() {
 			log.Warn().Err(err).Str("path", loadPath).Msg("failed to open")
 			continue
 		}
-		wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true, true)
+		wrpl, err := wrpl.ReadWRPL(bytes.NewReader(replayBytes), true, true, true)
 		log.Err(err).Str("path", loadPath).Msg("loading replay")
 		if err != nil {
 			continue
@@ -154,8 +147,6 @@ func main() {
 			Replay:       wrpl,
 		})
 	}
-	err = parser.WriteCache()
-	log.Err(err).Msg("parser cache write")
 	imBackend.Run(loop)
 }
 
@@ -298,7 +289,7 @@ func uiShowBrowseTab() {
 					return nil
 				}
 				defer fp.Close()
-				r, err := parser.ReadWRPL(fp, false, false, false)
+				r, err := wrpl.ReadWRPL(fp, false, false, false)
 				if err != nil {
 					log.Err(err).Str("path", p).Msg("parsing replay file")
 					return nil
@@ -444,7 +435,7 @@ func openSingleReplayFile(filePath string) error {
 	if err != nil {
 		return err
 	}
-	wrpl, err := parser.ReadWRPL(bytes.NewReader(replayBytes), true, true, true)
+	wrpl, err := wrpl.ReadWRPL(bytes.NewReader(replayBytes), true, true, true)
 	if err != nil {
 		return err
 	}
@@ -478,7 +469,7 @@ func openSegmentedReplayFolder(folderPath string) error {
 		parts = append(parts, part)
 	}
 
-	rpl, err := parser.ReadPartedWRPL(parts)
+	rpl, err := wrpl.ReadPartedWRPL(parts)
 	if err != nil {
 		return fmt.Errorf("reading segmented replay: %w", err)
 	}
@@ -526,7 +517,7 @@ func fetchServerReplay(sessionNumberStr string) error {
 		}
 		parts = append(parts, part)
 	}
-	rpl, err := parser.ReadPartedWRPL(parts)
+	rpl, err := wrpl.ReadPartedWRPL(parts)
 	if err != nil {
 		return fmt.Errorf("reading segmented replay: %w", err)
 	}

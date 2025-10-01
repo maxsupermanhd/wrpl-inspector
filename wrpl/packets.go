@@ -39,7 +39,7 @@ func (pk *WRPLRawPacket) Time() time.Duration {
 	return time.Duration(pk.CurrentTime/256) * time.Millisecond
 }
 
-func (parser *WRPLParser) parsePacketStream(r io.Reader) (ret []*WRPLRawPacket, err error) {
+func ParsePacketStream(r io.Reader) (ret []*WRPLRawPacket, err error) {
 	ret = []*WRPLRawPacket{}
 	currentTime := uint32(0)
 	packetNum := 0

@@ -38,14 +38,14 @@ type WRPL struct {
 	ResultsJSON  string
 }
 
-func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
+func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
 	if len(replayBytes) == 0 {
 		return nil, nil
 	}
 	parts := map[int]*WRPL{}
 	var sessionID uint64
 	for i, r := range replayBytes {
-		rpl, err := parser.ReadWRPL(bytes.NewReader(r), true, true, true)
+		rpl, err := ReadWRPL(bytes.NewReader(r), true, true, true)
 		if err != nil {
 			return nil, fmt.Errorf("parsing replay part file %d: %w", i, err)
 		}
@@ -79,7 +79,7 @@ func (parser *WRPLParser) ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err e
 	return
 }
 
-func (parser *WRPLParser) ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (ret *WRPL, err error) {
+func ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (ret *WRPL, err error) {
 	ret = &WRPL{}
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
@@ -95,7 +95,7 @@ func (parser *WRPLParser) ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets,
 		if err != nil {
 			return ret, fmt.Errorf("reading settings blk: %w", err)
 		}
-		ret.Settings, err = parser.parseBlk(settingsBlock)
+		ret.Settings, err = ParseBlk(settingsBlock)
 		if err != nil {
 			return ret, fmt.Errorf("parsing settings blk: %w", err)
 		}
@@ -116,7 +116,7 @@ func (parser *WRPLParser) ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets,
 		}
 		defer packetsStream.Close()
 
-		ret.Packets, err = parser.parsePacketStream(packetsStream)
+		ret.Packets, err = ParsePacketStream(packetsStream)
 		if err != nil {
 			return nil, fmt.Errorf("parsing packet stream: %w", err)
 		}
@@ -131,7 +131,7 @@ func (parser *WRPLParser) ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets,
 		if err != nil {
 			return ret, fmt.Errorf("reading results blk: %w", err)
 		}
-		ret.Results, err = parser.parseBlk(resultsBlock)
+		ret.Results, err = ParseBlk(resultsBlock)
 		if err != nil {
 			return ret, fmt.Errorf("parsing results blk: %w", err)
 		}

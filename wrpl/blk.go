@@ -28,7 +28,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-func (parser *WRPLParser) parseBlk(input []byte) (ret map[string]any, err error) {
+func ParseBlk(input []byte) (ret map[string]any, err error) {
 	if len(input) == 0 {
 		return nil, errors.New("empty BLK buffer")
 	}
