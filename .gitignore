@@ -6,3 +6,4 @@ cache*
 wrpl-inspector
 fetchedReplays
 out.*
+tools/_*

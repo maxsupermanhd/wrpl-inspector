@@ -67,11 +67,11 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	if err != nil {
 		return
 	}
-	parsed.Sender, err = packetReadLenString(r)
+	parsed.Sender, err = PacketReadLenString(r)
 	if err != nil {
 		return
 	}
-	parsed.Content, err = packetReadLenString(r)
+	parsed.Content, err = PacketReadLenString(r)
 	if err != nil {
 		return
 	}
@@ -135,7 +135,7 @@ func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket
 	defer func() {
 		ret.Data = parsed
 	}()
-	parsed.Always0xF0, err = readToHexStr(r, 1)
+	parsed.Always0xF0, err = ReadToHexStr(r, 1)
 	if err != nil {
 		return
 	}
@@ -143,7 +143,7 @@ func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket
 	if err != nil {
 		return
 	}
-	parsed.Always0x003E, err = readToHexStr(r, 2)
+	parsed.Always0x003E, err = ReadToHexStr(r, 2)
 	if err != nil {
 		return
 	}
@@ -151,11 +151,11 @@ func parsePacketMPI_Award(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket
 	if err != nil {
 		return
 	}
-	parsed.Always0x000000, err = readToHexStr(r, 3)
+	parsed.Always0x000000, err = ReadToHexStr(r, 3)
 	if err != nil {
 		return
 	}
-	parsed.AwardName, err = packetReadLenString(r)
+	parsed.AwardName, err = PacketReadLenString(r)
 	if err != nil {
 		return
 	}
@@ -187,7 +187,7 @@ func parsePacketMPI_Kill(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket,
 	defer func() {
 		ret.Data = parsed
 	}()
-	parsed.Always0xF0, err = readToHexStr(r, 1)
+	parsed.Always0xF0, err = ReadToHexStr(r, 1)
 	if err != nil {
 		return
 	}
@@ -196,7 +196,7 @@ func parsePacketMPI_Kill(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket,
 		return
 	}
 	parsed.DamageType = parsed.Control & 0xF0
-	parsed.Always0x00FE3F, err = readToHexStr(r, 3)
+	parsed.Always0x00FE3F, err = ReadToHexStr(r, 3)
 	if err != nil {
 		return
 	}
@@ -204,11 +204,11 @@ func parsePacketMPI_Kill(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket,
 	if err != nil {
 		return
 	}
-	parsed.Always0x000000, err = readToHexStr(r, 3)
+	parsed.Always0x000000, err = ReadToHexStr(r, 3)
 	if err != nil {
 		return
 	}
-	parsed.KillerVehicle, err = packetReadLenString(r)
+	parsed.KillerVehicle, err = PacketReadLenString(r)
 	if err != nil {
 		return
 	}
@@ -236,15 +236,15 @@ func parsePacketMPI_CompressedBlobs(pk *WRPLRawPacket, r *bytes.Reader) (ret *Pa
 	defer func() {
 		ret.Data = parsed
 	}()
-	parsed.Always0xF0, err = readToHexStr(r, 1)
+	parsed.Always0xF0, err = ReadToHexStr(r, 1)
 	if err != nil {
 		return
 	}
-	parsed.Unk0, err = readToHexStr(r, 2)
+	parsed.Unk0, err = ReadToHexStr(r, 2)
 	if err != nil {
 		return
 	}
-	parsed.Always0x01, err = readToHexStr(r, 1)
+	parsed.Always0x01, err = ReadToHexStr(r, 1)
 	if err != nil {
 		return
 	}
@@ -260,7 +260,7 @@ func parsePacketMPI_CompressedBlobs(pk *WRPLRawPacket, r *bytes.Reader) (ret *Pa
 	} else {
 		parsed.Always0x01 += "01"
 	}
-	parsed.Unk1, err = readToHexStr(r, 4)
+	parsed.Unk1, err = ReadToHexStr(r, 4)
 	if err != nil {
 		return
 	}
@@ -300,7 +300,7 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 	defer func() {
 		ret.Data = parsed
 	}()
-	parsed.Always0xF0, err = readToHexStr(r, 1)
+	parsed.Always0xF0, err = ReadToHexStr(r, 1)
 	if err != nil {
 		return
 	}
@@ -310,7 +310,7 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 	}
 	var r2 *bytes.Reader
 	if parsed.DataCompressed > 0 {
-		parsed.Unk0, err = readToHexStr(r, 1)
+		parsed.Unk0, err = ReadToHexStr(r, 1)
 		if err != nil {
 			return
 		}
@@ -318,12 +318,12 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 		if err != nil {
 			return
 		}
-		parsed.Unk1, err = readToHexStr(r, 2)
+		parsed.Unk1, err = ReadToHexStr(r, 2)
 		if err != nil {
 			return
 		}
 		if parsed.Control&0xF0 > 0 {
-			parsed.Unk2, err = readToHexStr(r, 1) // perhaps this 0x04 is blk type 4, slim zstd
+			parsed.Unk2, err = ReadToHexStr(r, 1) // perhaps this 0x04 is blk type 4, slim zstd
 			if err != nil {
 				return
 			}
@@ -338,7 +338,7 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 		}
 		r2 = bytes.NewReader(b)
 	} else {
-		parsed.Unk1, err = readToHexStr(r, 6)
+		parsed.Unk1, err = ReadToHexStr(r, 6)
 		if err != nil {
 			return
 		}
@@ -372,7 +372,7 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 	return
 }
 
-func readToHexStr(r *bytes.Reader, l int) (string, error) {
+func ReadToHexStr(r *bytes.Reader, l int) (string, error) {
 	ret := ""
 	for range l {
 		b, err := r.ReadByte()
@@ -402,7 +402,7 @@ func packetAutoReadName[T any](r *bytes.Reader, order binary.ByteOrder, m map[st
 	return err
 }
 
-func packetReadLenString(r *bytes.Reader) (string, error) {
+func PacketReadLenString(r *bytes.Reader) (string, error) {
 	l, err := r.ReadByte()
 	if err != nil {
 		return "", err
