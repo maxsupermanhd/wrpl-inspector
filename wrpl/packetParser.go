@@ -276,20 +276,25 @@ func parsePacketMPI_CompressedBlobs(pk *WRPLRawPacket, r *bytes.Reader) (ret *Pa
 	return
 }
 
-type ParsedPacketCompressedBlobs2 struct {
+type SlotPrefixedMessage struct {
+	Slot    byte
+	Message []byte
+}
+
+type ParsedPacketSlotMessage struct {
 	Always0xF0     string `reflectViewHidden:"true"`
 	DataCompressed byte
 	Unk0           string
 	Control        byte
 	Unk1           string
 	Unk2           string
-	Blob           string
+	Messages       []SlotPrefixedMessage
 }
 
 func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
-	parsed := ParsedPacketCompressedBlobs2{}
+	parsed := ParsedPacketSlotMessage{}
 	ret = &ParsedPacket{
-		Name: "compressed2",
+		Name: "slotMessage",
 		Data: nil,
 	}
 	defer func() {
@@ -303,36 +308,67 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 	if err != nil {
 		return
 	}
-	if parsed.DataCompressed != 0x01 {
-		return
-	}
-	parsed.Unk0, err = readToHexStr(r, 1)
-	if err != nil {
-		return
-	}
-	parsed.Control, err = r.ReadByte()
-	if err != nil {
-		return
-	}
-	parsed.Unk1, err = readToHexStr(r, 2)
-	if err != nil {
-		return
-	}
-	if parsed.Control&0xF0 > 0 {
-		parsed.Unk2, err = readToHexStr(r, 1) // perhaps this 0x04 is blk type 4, slim zstd
+	var r2 *bytes.Reader
+	if parsed.DataCompressed > 0 {
+		parsed.Unk0, err = readToHexStr(r, 1)
 		if err != nil {
 			return
 		}
+		parsed.Control, err = r.ReadByte()
+		if err != nil {
+			return
+		}
+		parsed.Unk1, err = readToHexStr(r, 2)
+		if err != nil {
+			return
+		}
+		if parsed.Control&0xF0 > 0 {
+			parsed.Unk2, err = readToHexStr(r, 1) // perhaps this 0x04 is blk type 4, slim zstd
+			if err != nil {
+				return
+			}
+		}
+		dc, err2 := zstd.NewReader(r) // 28b52ffd
+		if err2 != nil {
+			return
+		}
+		b, err2 := io.ReadAll(dc)
+		if err2 != nil {
+			return
+		}
+		r2 = bytes.NewReader(b)
+	} else {
+		parsed.Unk1, err = readToHexStr(r, 6)
+		if err != nil {
+			return
+		}
+		r2 = r
 	}
-	dc, err := zstd.NewReader(r) // 28b52ffd
+	messageCount := uint16(0)
+	err = binary.Read(r2, binary.LittleEndian, &messageCount)
 	if err != nil {
 		return
 	}
-	blob, err := io.ReadAll(dc)
-	if err != nil {
-		return
+	for range messageCount {
+		messageLen := uint16(0)
+		err = binary.Read(r2, binary.LittleEndian, &messageLen)
+		if err != nil {
+			return
+		}
+		messageSlot, err2 := r2.ReadByte()
+		if err2 != nil {
+			return
+		}
+		messageBuf := make([]byte, messageLen-1)
+		_, err = r2.Read(messageBuf)
+		if err != nil {
+			return
+		}
+		parsed.Messages = append(parsed.Messages, SlotPrefixedMessage{
+			Slot:    messageSlot,
+			Message: messageBuf,
+		})
 	}
-	parsed.Blob = hex.Dump(blob)
 	return
 }
 
