@@ -1055,6 +1055,9 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 					imgui.TextUnformatted(strconv.Itoa(int(pk.PacketType)))
 					imgui.TableNextColumn()
 					payload := pk.PacketPayload
+					if len(payload) > 512 {
+						payload = payload[:512]
+					}
 					switch *mode {
 					case 1:
 						if inRange(packets, i-1) {
