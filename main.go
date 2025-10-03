@@ -29,7 +29,6 @@ import (
 	"io"
 	"io/fs"
 	"maps"
-	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -616,21 +615,6 @@ func uiShowSlotInfo(rpl *parsedReplay) {
 	}
 }
 
-func analyseGetTimes(packets []*wrpl.WRPLRawPacket) []float32 {
-	if len(packets) == 0 {
-		return []float32{0}
-	}
-	values := []float32{}
-	for _, pk := range packets {
-		t := int(pk.CurrentTime / 100_000)
-		if t+1 > len(values) {
-			values = append(values, make([]float32, t-len(values)+1)...)
-		}
-		values[t]++
-	}
-	return values
-}
-
 func viewReflection(packets []*wrpl.WRPLRawPacket) {
 	if len(packets) == 0 {
 		imgui.TextUnformatted("no packets?")
@@ -738,16 +722,17 @@ func uiShowParsed(rpl *parsedReplay) {
 }
 
 var (
-	beProcessed      = false
-	beFirstFit       = false
-	beFilter         = "^00035843d03f00fe01(........)"
-	beFilterRegex    *regexp.Regexp
-	beFilterErr      error
-	bePlotTime       []float32
-	bePlotValues     []float32
-	bePlotValuesRaw  []string
-	beInterpret      = int32(4)
-	beInterpretNames = []string{"uint8", "uint16", "uint32", "uint64", "float32", "float64"}
+	beProcessed          = false
+	beFirstFit           = false
+	beFilter             = "^00035843d03f00fe01(........)"
+	beFilterRegex        *regexp.Regexp
+	beFilterErr          error
+	bePlotTime           []float32
+	bePlotValues         []float32
+	bePlotValuesRaw      []string
+	beInterpretType      = int32(4)
+	beInterpretTypeNames = []string{"uint8", "uint16", "uint32", "uint64", "float32", "float64"}
+	beInterpretShift     = int32(0)
 )
 
 func genByteInterp(rpl *parsedReplay) error {
@@ -775,8 +760,9 @@ func genByteInterp(rpl *parsedReplay) error {
 		if err != nil {
 			return err
 		}
+		b = ShiftBytes(b, int(beInterpretShift))
 		bePlotValuesRaw = append(bePlotValuesRaw, val)
-		switch beInterpret {
+		switch beInterpretType {
 		case 0:
 			var v uint8
 			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
@@ -828,7 +814,10 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 	}) {
 		beProcessed = false
 	}
-	if imgui.ComboStrarr("##view mode", &beInterpret, beInterpretNames, int32(len(beInterpretNames))) {
+	if imgui.InputInt("shift", &beInterpretShift) {
+		beProcessed = false
+	}
+	if imgui.ComboStrarr("##view mode", &beInterpretType, beInterpretTypeNames, int32(len(beInterpretTypeNames))) {
 		beProcessed = false
 	}
 	if beFilterErr != nil {
@@ -1045,7 +1034,7 @@ func uiShowPacketSearch(rpl *parsedReplay) {
 }
 
 func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mode *int32) {
-	viewModes := []string{"hexdump", "context hex", "context plain", "context both", "amout/time"}
+	viewModes := []string{"hexdump", "context hex", "context plain", "context both", "amout/time", "len/time"}
 
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Mode")
@@ -1185,11 +1174,33 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 			imgui.EndTable()
 		}
 	case 4:
-		results := analyseGetTimes(packets)
-		avail := imgui.ContentRegionAvail()
-		imgui.PlotHistogramFloatPtrV("##da plot search",
-			&results[0], int32(len(results)),
-			0, "", math.MaxFloat32, math.MaxFloat32, imgui.Vec2{X: avail.X, Y: avail.Y / 2}, 4)
+		plX := []float32{}
+		plY := []float32{}
+		prevTime := -1
+		for i := range packets {
+			if prevTime == int(packets[i].CurrentTime) {
+				plY[len(plY)-1]++
+			} else {
+				plX = append(plX, float32(packets[i].CurrentTime)/256)
+				plY = append(plY, float32(1))
+				prevTime = int(packets[i].CurrentTime)
+			}
+		}
+		if implot.BeginPlot("##da plot search") {
+			implot.PlotBarsFloatPtrFloatPtr("val", &plX[0], &plY[0], int32(len(plX)), 1.0)
+			implot.EndPlot()
+		}
+	case 5:
+		plX := []float32{}
+		plY := []float32{}
+		for i := range packets {
+			plX = append(plX, float32(packets[i].CurrentTime)/256)
+			plY = append(plY, float32(len(packets[i].PacketPayload)))
+		}
+		if implot.BeginPlot("##da plot search") {
+			implot.PlotBarsFloatPtrFloatPtr("val", &plX[0], &plY[0], int32(len(plX)), 1.0)
+			implot.EndPlot()
+		}
 	}
 	if isHoverScroll {
 		wh := imgui.CurrentIO().MouseWheel()
@@ -1244,6 +1255,37 @@ func uiShowPacket(pk *wrpl.WRPLRawPacket) {
 
 		imgui.EndTable()
 	}
+}
+
+func ShiftBytes(b []byte, n int) []byte {
+	if len(b) == 0 {
+		return nil
+	}
+	totalBits := 8 * len(b)
+	n = ((n % totalBits) + totalBits) % totalBits
+	if n == 0 {
+		out := make([]byte, len(b))
+		copy(out, b)
+		return out
+	}
+	out := make([]byte, len(b))
+	byteShift := n / 8
+	bitShift := n % 8
+	invBitShift := 8 - bitShift
+	for i := range b {
+		srcIndex := i - byteShift
+		var v byte = 0
+		if srcIndex >= 0 && srcIndex < len(b) {
+			v = b[srcIndex] << uint(bitShift)
+		}
+		var carry byte = 0
+		srcIndex2 := srcIndex + 1
+		if bitShift != 0 && srcIndex2 >= 0 && srcIndex2 < len(b) {
+			carry = b[srcIndex2] >> uint(invBitShift)
+		}
+		out[i] = v | carry
+	}
+	return out
 }
 
 func uiShowParsedPacket(pk *wrpl.WRPLRawPacket) {
