@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/klauspost/compress/zstd"
 )
@@ -38,12 +39,12 @@ type ParsedPacket struct {
 	Data any
 }
 
-func parsePacket(pk *WRPLRawPacket) (*ParsedPacket, error) {
+func ParsePacket(rpl *WRPL, pk *WRPLRawPacket) (*ParsedPacket, error) {
 	switch pk.PacketType {
 	case PacketTypeChat:
 		return parsePacketChat(pk)
 	case PacketTypeMPI:
-		return parsePacketMPI(pk)
+		return parsePacketMPI(rpl, pk)
 	default:
 		return nil, ErrUnknownPacket
 	}
@@ -87,7 +88,7 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	return
 }
 
-func parsePacketMPI(pk *WRPLRawPacket) (pp *ParsedPacket, err error) {
+func parsePacketMPI(rpl *WRPL, pk *WRPLRawPacket) (pp *ParsedPacket, err error) {
 	r := bytes.NewReader(pk.PacketPayload)
 
 	signature := [4]byte{}
@@ -101,7 +102,7 @@ func parsePacketMPI(pk *WRPLRawPacket) (pp *ParsedPacket, err error) {
 	// case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x74}): // ^00025874 model info (has steering)
 	// case bytes.Equal(signature[:], []byte{0x00, 0x03, 0x58, 0x43}): // ^00035843 model info (has turret angles)
 	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x2d}): // ^0002582d zstd blobs (28b52ffd)
-		pp, err = parsePacketMPI_CompressedBlobs2(pk, r)
+		pp, err = parsePacketMPI_SlotMessage(rpl, pk, r)
 	case bytes.Equal(signature[:], []byte{0x00, 0x00, 0x58, 0x22}): // ^00005822 zstd blobs (28b52ffd)
 		pp, err = parsePacketMPI_CompressedBlobs(pk, r)
 	case bytes.Equal(signature[:], []byte{0x00, 0x02, 0x58, 0x58}): // ^00035843 kill screen? (has killer's vehicle name)
@@ -291,7 +292,7 @@ type ParsedPacketSlotMessage struct {
 	Messages       []SlotPrefixedMessage
 }
 
-func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
+func parsePacketMPI_SlotMessage(rpl *WRPL, pk *WRPLRawPacket, r *bytes.Reader) (ret *ParsedPacket, err error) {
 	parsed := ParsedPacketSlotMessage{}
 	ret = &ParsedPacket{
 		Name: "slotMessage",
@@ -338,10 +339,6 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 		}
 		r2 = bytes.NewReader(b)
 	} else {
-		parsed.Unk1, err = ReadToHexStr(r, 6)
-		if err != nil {
-			return
-		}
 		r2 = r
 	}
 	messageCount := uint16(0)
@@ -368,8 +365,76 @@ func parsePacketMPI_CompressedBlobs2(pk *WRPLRawPacket, r *bytes.Reader) (ret *P
 			Slot:    messageSlot,
 			Message: messageBuf,
 		})
+		parseSlotMessage(rpl, messageSlot, messageBuf)
 	}
 	return
+}
+
+func parseSlotMessage(rpl *WRPL, slot byte, msg []byte) {
+	if len(msg) < 5 {
+		return
+	}
+	r := bytes.NewReader(msg)
+	pkType, err := r.ReadByte()
+	if err != nil {
+		return
+	}
+	var u0 uint16
+	err = binary.Read(r, binary.LittleEndian, &u0)
+	if err != nil {
+		return
+	}
+	pkType1, err := r.ReadByte()
+	if err != nil {
+		return
+	}
+	pkType2, err := r.ReadByte()
+	if err != nil {
+		return
+	}
+	if pkType == 0x70 && pkType1 == 0x30 && pkType2 == 0x60 {
+		parseSlotMessage_PlayerInit(rpl, slot, r)
+	} else if pkType == 0x70 && pkType1 == 0x06 && pkType2 == 0x60 && u0 < 150 {
+		parseSlotMessage_SetTitle(rpl, slot, r)
+	}
+}
+
+func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
+	u := &Player{}
+	err := binary.Read(r, binary.LittleEndian, &u.UserID)
+	if err != nil {
+		return
+	}
+	_, err = r.Seek(4, io.SeekCurrent)
+	if err != nil {
+		return
+	}
+	uName := make([]byte, 67)
+	_, err = r.Read(uName)
+	if err != nil {
+		return
+	}
+	u.Name = strings.Trim(string(uName), "\x00")
+	u.ClanTag, err = PacketReadLenString(r)
+	if err != nil {
+		return
+	}
+	u.Title, err = PacketReadLenString(r)
+	if err != nil {
+		return
+	}
+	rpl.Players[slot] = u
+}
+
+func parseSlotMessage_SetTitle(rpl *WRPL, slot byte, r *bytes.Reader) {
+	t, err := PacketReadLenString(r)
+	if err != nil {
+		return
+	}
+	if rpl.Players[slot] == nil {
+		return
+	}
+	rpl.Players[slot].Title = t
 }
 
 func ReadToHexStr(r *bytes.Reader, l int) (string, error) {
@@ -410,4 +475,16 @@ func PacketReadLenString(r *bytes.Reader) (string, error) {
 	ret := make([]byte, l)
 	_, err = r.Read(ret)
 	return string(ret), err
+}
+
+func bytesToChar(s []byte) (ret string) {
+	sb := strings.Builder{}
+	for _, b := range s {
+		if b < 32 || b > 126 {
+			sb.WriteByte('.')
+		} else {
+			sb.WriteByte(b)
+		}
+	}
+	return sb.String()
 }

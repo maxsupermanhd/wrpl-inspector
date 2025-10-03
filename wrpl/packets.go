@@ -39,7 +39,7 @@ func (pk *WRPLRawPacket) Time() time.Duration {
 	return time.Duration(pk.CurrentTime/256) * time.Millisecond
 }
 
-func ParsePacketStream(r io.Reader) (ret []*WRPLRawPacket, err error) {
+func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error) {
 	ret = []*WRPLRawPacket{}
 	currentTime := uint32(0)
 	packetNum := 0
@@ -84,7 +84,7 @@ func ParsePacketStream(r io.Reader) (ret []*WRPLRawPacket, err error) {
 			PacketType:    PacketType(packetType),
 			PacketPayload: packetPayload,
 		}
-		pk.Parsed, pk.ParseError = parsePacket(pk)
+		pk.Parsed, pk.ParseError = ParsePacket(rpl, pk)
 		ret = append(ret, pk)
 	}
 	return

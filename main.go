@@ -20,7 +20,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -575,110 +574,15 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 	}
 }
 
-type siUser struct {
-	Name    string
-	ClanTag string
-	UserID  uint32
-	Title   string
-	Unk0    string
-	Unk1    string
-}
-
-var (
-	siUsers []*siUser
-)
-
 func uiShowSlotInfo(rpl *parsedReplay) {
-	if siUsers == nil {
-		siUsers = make([]*siUser, 0xff)
-		for _, pk := range rpl.Replay.Packets {
-			if pk.Parsed == nil {
-				continue
-			}
-			if pk.Parsed.Name != "slotMessage" {
-				continue
-			}
-			parsed, ok := pk.Parsed.Data.(wrpl.ParsedPacketSlotMessage)
-			if !ok {
-				continue
-			}
-			for _, msg := range parsed.Messages {
-				if len(msg.Message) < 20 {
-					continue
-				}
-				r := bytes.NewReader(msg.Message)
-				// if len(d) >= 5 && d[0] == 0x70 && d[3] == 0x30 && d[4] == 0x60 {
-				// }
-				b1, err := r.ReadByte()
-				if err != nil {
-					continue
-				}
-				if b1 != 0x70 {
-					continue
-				}
-				u0, err := wrpl.ReadToHexStr(r, 2)
-				if err != nil {
-					continue
-				}
-				b3, err := r.ReadByte()
-				if err != nil {
-					continue
-				}
-				if b3 != 0x30 {
-					continue
-				}
-				b4, err := r.ReadByte()
-				if err != nil {
-					continue
-				}
-				if b4 != 0x60 {
-					continue
-				}
-				uID := uint32(0)
-				err = binary.Read(r, binary.LittleEndian, &uID)
-				if err != nil {
-					continue
-				}
-				u1, err := wrpl.ReadToHexStr(r, 4)
-				if err != nil {
-					continue
-				}
-				uName := make([]byte, 67)
-				_, err = r.Read(uName)
-				if err != nil {
-					continue
-				}
-				uClanTag, err := wrpl.PacketReadLenString(r)
-				if err != nil {
-					continue
-				}
-				uTitle, err := wrpl.PacketReadLenString(r)
-				if err != nil {
-					continue
-				}
-
-				siUsers[msg.Slot] = &siUser{
-					Name:    string(bytes.Trim(uName, "\x00")),
-					ClanTag: uClanTag,
-					UserID:  uID,
-					Title:   uTitle,
-					Unk0:    u0,
-					Unk1:    u1,
-				}
-			}
-		}
-	}
-
-	if imgui.BeginTable("playersTable", 7) {
+	if imgui.BeginTable("playersTable", 5) {
 		imgui.TableSetupColumn("n")
 		imgui.TableSetupColumn("name")
 		imgui.TableSetupColumn("clan")
 		imgui.TableSetupColumn("id")
 		imgui.TableSetupColumn("title")
-		imgui.TableSetupColumn("u0")
-		imgui.TableSetupColumn("u1")
 		imgui.TableHeadersRow()
-		for i, u := range siUsers {
+		for i, u := range rpl.Replay.Players {
 			if u == nil {
 				continue
 			}
@@ -693,10 +597,6 @@ func uiShowSlotInfo(rpl *parsedReplay) {
 			imgui.TextUnformatted(strconv.Itoa(int(u.UserID)))
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(u.Title)
-			imgui.TableNextColumn()
-			imgui.TextUnformatted(u.Unk0)
-			imgui.TableNextColumn()
-			imgui.TextUnformatted(u.Unk1)
 		}
 		imgui.EndTable()
 	}
@@ -823,15 +723,15 @@ func uiShowParsed(rpl *parsedReplay) {
 	}
 }
 
-var (
-	pvProcessed    = false
-	pvKeys         []string
-	pvKeysMaxWidth float32
-	pvVals         = [][]float32{}
-	pvViewOffset   = int32(0)
-	pvViewSize     = int32(512)
-	pvPacketName   = ""
-)
+// var (
+// 	pvProcessed    = false
+// 	pvKeys         []string
+// 	pvKeysMaxWidth float32
+// 	pvVals         = [][]float32{}
+// 	pvViewOffset   = int32(0)
+// 	pvViewSize     = int32(512)
+// 	pvPacketName   = ""
+// )
 
 // func uiShowReplayPacketVals(rpl *parsedReplay) {
 // 	if !pvProcessed {

@@ -29,6 +29,13 @@ import (
 	"slices"
 )
 
+type Player struct {
+	Name    string
+	ClanTag string
+	UserID  uint32
+	Title   string
+}
+
 type WRPL struct {
 	Header       WRPLHeader
 	Settings     map[string]any
@@ -36,6 +43,7 @@ type WRPL struct {
 	Packets      []*WRPLRawPacket
 	Results      map[string]any
 	ResultsJSON  string
+	Players      []*Player
 }
 
 func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
@@ -116,7 +124,8 @@ func ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (
 		}
 		defer packetsStream.Close()
 
-		ret.Packets, err = ParsePacketStream(packetsStream)
+		ret.Players = make([]*Player, 0xFF)
+		ret.Packets, err = ParsePacketStream(ret, packetsStream)
 		if err != nil {
 			return nil, fmt.Errorf("parsing packet stream: %w", err)
 		}
