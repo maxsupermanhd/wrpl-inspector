@@ -20,6 +20,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -45,6 +46,7 @@ import (
 	"github.com/AllenDang/cimgui-go/backend"
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/AllenDang/cimgui-go/imgui"
+	"github.com/AllenDang/cimgui-go/implot"
 	"github.com/davecgh/go-spew/spew"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
@@ -58,7 +60,8 @@ var (
 	openReplaysLock        sync.Mutex
 	pinnedPacketsByContent = []*wrpl.WRPLRawPacket{}
 
-	showDemoWindow bool
+	showDemoWindowImgui  bool
+	showDemoWindowImplot bool
 )
 
 type parsedReplay struct {
@@ -104,9 +107,6 @@ func main() {
 	imBackend.SetDropCallback(func(p []string) {
 		log.Info().Msgf("drop triggered: %v", p)
 	})
-	// imBackend.SetCloseCallback(func() {
-	// 	log.Info().Msg("window closing")
-	// })
 	fontBytes, err := os.ReadFile(`HackNerdFontMono-Regular.ttf`)
 	if err != nil {
 		panic(err)
@@ -120,6 +120,12 @@ func main() {
 	cfg.SetFontDataOwnedByAtlas(false)
 	cfg.SetPixelSnapH(true)
 	imgui.CurrentIO().Fonts().AddFont(cfg)
+
+	// implotctx := implot.CreateContext()
+	implot.CreateContext()
+	imBackend.SetCloseCallback(func() {
+		log.Info().Msg("window closing")
+	})
 
 	for _, loadPath := range flag.Args() {
 		log.Info().Str("path", loadPath).Msg("loading")
@@ -148,6 +154,8 @@ func main() {
 		})
 	}
 	imBackend.Run(loop)
+
+	implot.DestroyContext()
 }
 
 func loop() {
@@ -160,11 +168,17 @@ func loop() {
 		uiShowMainWindow()
 		imgui.End()
 	}
-	if imgui.IsKeyPressedBool(imgui.KeyGraveAccent) && imgui.CurrentIO().KeyCtrl() {
-		showDemoWindow = !showDemoWindow
+	if imgui.IsKeyPressedBool(imgui.KeyKeypad0) && imgui.CurrentIO().KeyCtrl() {
+		showDemoWindowImgui = !showDemoWindowImgui
 	}
-	if showDemoWindow {
+	if showDemoWindowImgui {
 		imgui.ShowDemoWindow()
+	}
+	if imgui.IsKeyPressedBool(imgui.KeyKeypad1) && imgui.CurrentIO().KeyCtrl() {
+		showDemoWindowImplot = !showDemoWindowImplot
+	}
+	if showDemoWindowImplot {
+		implot.ShowDemoWindow()
 	}
 	for pinID, ppk := range pinnedPacketsByContent {
 		isPinnedOpen := true
@@ -558,10 +572,10 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 			uiShowReplayPackets(rpl)
 			imgui.EndTabItem()
 		}
-		// if imgui.BeginTabItem("packet values") {
-		// 	uiShowReplayPacketVals(rpl)
-		// 	imgui.EndTabItem()
-		// }
+		if imgui.BeginTabItem("byte interpreter") {
+			uiShowReplayPacketByteInterpreter(rpl)
+			imgui.EndTabItem()
+		}
 		if imgui.BeginTabItem("parsed") {
 			uiShowParsed(rpl)
 			imgui.EndTabItem()
@@ -723,89 +737,146 @@ func uiShowParsed(rpl *parsedReplay) {
 	}
 }
 
-// var (
-// 	pvProcessed    = false
-// 	pvKeys         []string
-// 	pvKeysMaxWidth float32
-// 	pvVals         = [][]float32{}
-// 	pvViewOffset   = int32(0)
-// 	pvViewSize     = int32(512)
-// 	pvPacketName   = ""
-// )
+var (
+	beProcessed      = false
+	beFirstFit       = false
+	beFilter         = "^00035843d03f00fe01(........)"
+	beFilterRegex    *regexp.Regexp
+	beFilterErr      error
+	bePlotTime       []float32
+	bePlotValues     []float32
+	bePlotValuesRaw  []string
+	beInterpret      = int32(4)
+	beInterpretNames = []string{"uint8", "uint16", "uint32", "uint64", "float32", "float64"}
+)
 
-// func uiShowReplayPacketVals(rpl *parsedReplay) {
-// 	if !pvProcessed {
-// 		pvProcessed = true
-// 		for _, pk := range rpl.Replay.Packets {
-// 			if pk.Parsed == nil {
-// 				continue
-// 			}
-// 			if pk.Parsed.Name != pvPacketName {
-// 				continue
-// 			}
-// 			if pk.Parsed.Props == nil {
-// 				continue
-// 			}
-// 			if pvKeys == nil {
-// 				pvKeys = slices.Collect(maps.Keys(pk.Parsed.Props))
-// 				slices.Sort(pvKeys)
-// 				pvVals = make([][]float32, len(pvKeys))
-// 			}
-// 			for ki, k := range pvKeys {
-// 				vv := float32(0)
-// 				v, ok := pk.Parsed.Props[k]
-// 				if ok {
-// 					switch vt := v.(type) {
-// 					case uint8:
-// 						vv = float32(vt)
-// 					case uint16:
-// 						vv = float32(vt)
-// 					case uint32:
-// 						vv = float32(vt)
-// 					case uint64:
-// 						vv = float32(vt)
-// 					case int8:
-// 						vv = float32(vt)
-// 					case int16:
-// 						vv = float32(vt)
-// 					case int32:
-// 						vv = float32(vt)
-// 					case int64:
-// 						vv = float32(vt)
-// 					}
-// 				}
-// 				pvVals[ki] = append(pvVals[ki], vv)
-// 			}
-// 		}
-// 		for _, k := range pvKeys {
-// 			pvKeysMaxWidth = max(pvKeysMaxWidth, imgui.CalcTextSize(k).X)
-// 		}
-// 	}
+func genByteInterp(rpl *parsedReplay) error {
+	bePlotTime = nil
+	bePlotValues = nil
+	bePlotValuesRaw = nil
+	beFilterRegex, beFilterErr = regexp.Compile(beFilter)
+	if beFilterErr != nil {
+		return beFilterErr
+	}
+	bePlotTime = []float32{}
+	bePlotValues = []float32{}
+	bePlotValuesRaw = []string{}
+	for _, pk := range rpl.Replay.Packets {
+		matches := beFilterRegex.FindStringSubmatch(hex.EncodeToString(pk.PacketPayload))
+		if matches == nil {
+			continue
+		}
+		if len(matches) < 2 {
+			continue
+		}
+		val := matches[1]
+		// log.Info().Any("0", matches).Msg("")
+		b, err := hex.DecodeString(val)
+		if err != nil {
+			return err
+		}
+		bePlotValuesRaw = append(bePlotValuesRaw, val)
+		switch beInterpret {
+		case 0:
+			var v uint8
+			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
+			bePlotValues = append(bePlotValues, float32(v))
+		case 1:
+			var v uint16
+			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
+			bePlotValues = append(bePlotValues, float32(v))
+		case 2:
+			var v uint32
+			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
+			bePlotValues = append(bePlotValues, float32(v))
+		case 3:
+			var v uint64
+			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
+			bePlotValues = append(bePlotValues, float32(v))
+		case 4:
+			var v float32
+			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
+			bePlotValues = append(bePlotValues, float32(v))
+		case 5:
+			var v float64
+			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
+			bePlotValues = append(bePlotValues, float32(v))
+		default:
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		bePlotTime = append(bePlotTime, float32(pk.CurrentTime)/256)
+	}
+	return nil
+}
 
-// 	if imgui.InputTextWithHint("packet name", "", &pvPacketName, 0, func(data imgui.InputTextCallbackData) int {
-// 		pvProcessed = false
-// 		return 0
-// 	}) {
-// 		pvProcessed = false
-// 	}
+func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
+	if !beProcessed {
+		// ^00035843d03f00fe01(....)
+		beProcessed = true
+		beFirstFit = true
+		beFilterErr = genByteInterp(rpl)
+		if beFilterErr != nil {
+			bePlotTime = nil
+		}
+	}
+	if imgui.InputTextWithHint("regex filter", "", &beFilter, 0, func(data imgui.InputTextCallbackData) int {
+		beProcessed = false
+		return 0
+	}) {
+		beProcessed = false
+	}
+	if imgui.ComboStrarr("##view mode", &beInterpret, beInterpretNames, int32(len(beInterpretNames))) {
+		beProcessed = false
+	}
+	if beFilterErr != nil {
+		imgui.TextUnformatted("Error: " + beFilterErr.Error())
+		return
+	}
+	if imgui.SmallButton("reprocess") {
+		beProcessed = false
+	}
+	imgui.SameLine()
+	imgui.TextUnformatted(fmt.Sprintf("%d samples", len(bePlotTime)))
+	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
+	if bePlotTime == nil {
+		imgui.TextUnformatted("nil")
+	} else if len(bePlotTime) == 0 {
+		imgui.TextUnformatted("0 len")
+	} else {
+		if beFirstFit {
+			beFirstFit = false
+			implot.SetNextAxesToFit()
+		}
+		if implot.BeginPlot("values go here") {
+			implot.PlotBarsFloatPtrFloatPtr("val", &bePlotTime[0], &bePlotValues[0], int32(len(bePlotTime)), 1.0)
+			implot.EndPlot()
+		}
+		if imgui.BeginChildStr("values over time") {
+			tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
+			if imgui.BeginTableV("val table", 3, tableFlags, imgui.Vec2{}, 0.0) {
+				imgui.TableSetupColumn("time")
+				imgui.TableSetupColumn("value")
+				imgui.TableSetupColumn("raw")
+				imgui.TableHeadersRow()
+				for i := range bePlotTime {
+					imgui.TableNextRow()
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotTime[i]))
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotValues[i]))
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotValuesRaw[i]))
+				}
+				imgui.EndTable()
+			}
 
-// 	if len(pvVals) == 0 {
-// 		imgui.TextUnformatted("no values to show")
-// 		return
-// 	}
-
-// 	imgui.SliderInt("offset", &pvViewOffset, 0, int32(len(pvVals[0]))-1)
-// 	imgui.DragInt("size", &pvViewSize)
-
-// 	if imgui.BeginChildStr("values over time") {
-// 		for i, v := range pvVals {
-// 			imgui.SetNextItemWidth(imgui.ContentRegionAvail().X - pvKeysMaxWidth)
-// 			imgui.PlotLinesFloatPtr(pvKeys[i], &v[pvViewOffset], min(int32(len(pvVals[0]))-pvViewOffset, pvViewSize))
-// 		}
-// 		imgui.EndChild()
-// 	}
-
-// }
+			imgui.EndChild()
+		}
+	}
+}
 
 func uiShowReplaySummary(rpl *parsedReplay) {
 	imgui.TextUnformatted(rpl.LoadedFrom)
@@ -1031,9 +1102,9 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 				}
 				imgui.TableNextColumn()
 				if offset == contextSize {
-					imgui.TextUnformatted(strconv.Itoa(int(i)) + ">>")
+					imgui.TextUnformatted(fmt.Sprintf("%- 7d", i) + ">>")
 				} else {
-					imgui.TextUnformatted(strconv.Itoa(int(i)))
+					imgui.TextUnformatted(fmt.Sprintf("%- 7d", i))
 				}
 				if inRange(packets, i) {
 					pk := packets[i]
