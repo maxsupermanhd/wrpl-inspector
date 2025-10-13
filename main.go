@@ -67,10 +67,7 @@ type parsedReplay struct {
 	FileContents []byte
 	Replay       *wrpl.WRPL
 
-	ViewingPacketMode        int32
-	ViewingPacketListingMode int32
-	ViewingPacketID          int32
-	ViewingPacketSearch      uiSearchPacketData
+	uiPacketInspect *uiPacketInspectData
 
 	PinnedFindings []pinnedFinding
 
@@ -455,6 +452,9 @@ func addReplayTab(rpl *parsedReplay) {
 			beInterpretType: 4,
 		}
 	}
+	if rpl.uiPacketInspect == nil {
+		rpl.uiPacketInspect = &uiPacketInspectData{}
+	}
 	openReplays = append([]*parsedReplay{rpl}, openReplays...)
 }
 
@@ -583,7 +583,7 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 			imgui.EndTabItem()
 		}
 		if imgui.BeginTabItem("packets") {
-			uiShowReplayPackets(rpl)
+			uiShowPacketInspect(rpl)
 			imgui.EndTabItem()
 		}
 		if imgui.BeginTabItem("byte interpreter") {
@@ -928,42 +928,39 @@ func uiShowReplaySummary(rpl *parsedReplay) {
 	uiTextParam("Score limit:", strconv.Itoa(int(rpl.Replay.Header.ScoreLimit)))
 }
 
-func uiShowReplayPackets(rpl *parsedReplay) {
-	imgui.AlignTextToFramePadding()
-	imgui.TextUnformatted(fmt.Sprintf("Packet count: %d View mode:", len(rpl.Replay.Packets)))
-	imgui.SameLine()
-	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
-	imgui.ComboStr("##View mode", &rpl.ViewingPacketMode, "Search\x00Only parsed")
-
-	switch rpl.ViewingPacketMode {
-	case 0:
-		uiShowPacketSearch(rpl)
-	case 1:
-		imgui.TextUnformatted("only parsed todo")
-	default:
-		imgui.TextUnformatted("wrong mode")
-	}
-}
-
-type uiSearchPacketData struct {
-	Term               string
-	Mode               int32
+type uiPacketInspectData struct {
+	Subset             int32
+	ViewMode           int32
+	ViewPacketID       int32
+	SearchTerm         string
+	SearchMode         int32
 	ResultGlobalIDs    []int32
 	Results            []*wrpl.WRPLRawPacket
 	Error              error
 	InitialSearchDone  bool
 	EnableFilterByType bool
 	FilterByType       int32
-	TimeGraph          []float32
 }
 
-func uiShowPacketSearch(rpl *parsedReplay) {
+var (
+	uiPacketInspectSubsetNames = []string{"Packet stream"}
+)
+
+func uiShowPacketInspect(rpl *parsedReplay) {
+	dat := rpl.uiPacketInspect
 	doSearch := false
+
+	imgui.AlignTextToFramePadding()
+	imgui.TextUnformatted(fmt.Sprintf("Packet count: %d View mode:", len(rpl.Replay.Packets)))
+	imgui.SameLine()
+	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
+	imgui.ComboStrarr("##View mode", &dat.Subset, uiPacketInspectSubsetNames, int32(len(uiPacketInspectSubsetNames)))
+
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Search")
 	imgui.SameLine()
 	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X * 0.75)
-	if imgui.InputTextWithHint("##searchbox", "", &rpl.ViewingPacketSearch.Term, 0, func(data imgui.InputTextCallbackData) int {
+	if imgui.InputTextWithHint("##searchbox", "", &dat.SearchTerm, 0, func(data imgui.InputTextCallbackData) int {
 		doSearch = true
 		return 0
 	}) {
@@ -974,34 +971,35 @@ func uiShowPacketSearch(rpl *parsedReplay) {
 	imgui.SameLine()
 	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
 	modesStrs := []string{"regex hex", "regex bin", "regex plain", "prefix hex", "contains hex", "contains plain"}
-	if imgui.ComboStrarr("##searchMode", &rpl.ViewingPacketSearch.Mode, modesStrs, int32(len(modesStrs))) {
+	if imgui.ComboStrarr("##searchMode", &dat.SearchMode, modesStrs, int32(len(modesStrs))) {
 		doSearch = true
 	}
-	if imgui.Checkbox("Filter type", &rpl.ViewingPacketSearch.EnableFilterByType) {
+	if imgui.Checkbox("Filter type", &dat.EnableFilterByType) {
 		doSearch = true
 	}
 	imgui.SameLine()
-	if imgui.InputInt("##type filter", &rpl.ViewingPacketSearch.FilterByType) {
+	imgui.SetNextItemWidth(70)
+	if imgui.InputInt("##type filter", &dat.FilterByType) {
 		doSearch = true
 	}
 
-	if doSearch || !rpl.ViewingPacketSearch.InitialSearchDone {
-		rpl.ViewingPacketSearch.InitialSearchDone = true
-		rpl.ViewingPacketSearch.ResultGlobalIDs = []int32{}
-		rpl.ViewingPacketSearch.Results = []*wrpl.WRPLRawPacket{}
+	if doSearch || !dat.InitialSearchDone {
+		dat.InitialSearchDone = true
+		dat.ResultGlobalIDs = []int32{}
+		dat.Results = []*wrpl.WRPLRawPacket{}
 
 		var matchFn func([]byte) bool
 		var err error
-		switch rpl.ViewingPacketSearch.Mode {
+		switch dat.SearchMode {
 		case 0:
 			var reg *regexp.Regexp
-			reg, err = regexp.Compile(rpl.ViewingPacketSearch.Term)
+			reg, err = regexp.Compile(dat.SearchTerm)
 			matchFn = func(b []byte) bool {
 				return reg.Match([]byte(hex.EncodeToString(b)))
 			}
 		case 1:
 			var reg *regexp.Regexp
-			reg, err = regexp.Compile(rpl.ViewingPacketSearch.Term)
+			reg, err = regexp.Compile(dat.SearchTerm)
 			matchFn = func(b []byte) bool {
 				bb := []byte{}
 				for _, v := range b {
@@ -1011,48 +1009,48 @@ func uiShowPacketSearch(rpl *parsedReplay) {
 			}
 		case 2:
 			var reg *regexp.Regexp
-			reg, err = regexp.Compile(rpl.ViewingPacketSearch.Term)
+			reg, err = regexp.Compile(dat.SearchTerm)
 			matchFn = reg.Match
 		case 3:
 			var term []byte
-			term, err = hex.DecodeString(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(rpl.ViewingPacketSearch.Term, `^`, ""), `\x`, ""), " ", ""))
+			term, err = hex.DecodeString(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(dat.SearchTerm, `^`, ""), `\x`, ""), " ", ""))
 			matchFn = func(b []byte) bool {
 				return bytes.HasPrefix(b, term)
 			}
 		case 4:
 			var term []byte
-			term, err = hex.DecodeString(strings.ReplaceAll(rpl.ViewingPacketSearch.Term, " ", ""))
+			term, err = hex.DecodeString(strings.ReplaceAll(dat.SearchTerm, " ", ""))
 			matchFn = func(b []byte) bool {
 				return bytes.Contains(b, term)
 			}
 		case 5:
 			matchFn = func(b []byte) bool {
-				return bytes.Contains(b, []byte(rpl.ViewingPacketSearch.Term))
+				return bytes.Contains(b, []byte(dat.SearchTerm))
 			}
 		default:
-			log.Warn().Int32("format", rpl.ViewingPacketSearch.Mode).Msg("wrong search format")
+			log.Warn().Int32("format", dat.SearchMode).Msg("wrong search format")
 		}
 
 		if err != nil {
-			rpl.ViewingPacketSearch.Error = fmt.Errorf("decoding hex %q: %w", rpl.ViewingPacketSearch.Term, err)
+			dat.Error = fmt.Errorf("decoding hex %q: %w", dat.SearchTerm, err)
 			return
 		} else {
-			rpl.ViewingPacketSearch.Error = nil
+			dat.Error = nil
 		}
 
 		for i, pk := range rpl.Replay.Packets {
-			if rpl.ViewingPacketSearch.EnableFilterByType && pk.PacketType != wrpl.PacketType(rpl.ViewingPacketSearch.FilterByType) {
+			if dat.EnableFilterByType && pk.PacketType != wrpl.PacketType(dat.FilterByType) {
 				continue
 			}
 			if matchFn(pk.PacketPayload) {
-				rpl.ViewingPacketSearch.Results = append(rpl.ViewingPacketSearch.Results, pk)
-				rpl.ViewingPacketSearch.ResultGlobalIDs = append(rpl.ViewingPacketSearch.ResultGlobalIDs, int32(i))
+				dat.Results = append(dat.Results, pk)
+				dat.ResultGlobalIDs = append(dat.ResultGlobalIDs, int32(i))
 			}
 		}
 	}
 
-	if rpl.ViewingPacketSearch.Error != nil {
-		imgui.TextUnformatted(rpl.ViewingPacketSearch.Error.Error())
+	if dat.Error != nil {
+		imgui.TextUnformatted(dat.Error.Error())
 		return
 	}
 
@@ -1062,25 +1060,36 @@ func uiShowPacketSearch(rpl *parsedReplay) {
 	imgui.SameLine()
 	if imgui.Button("search") {
 		rpl.PinnedFindings = append(rpl.PinnedFindings, pinnedFinding{
-			Packets:   slices.Clone(rpl.ViewingPacketSearch.Results),
-			InitialID: rpl.ViewingPacketID,
-			CurrentID: rpl.ViewingPacketID,
+			Packets:   slices.Clone(dat.Results),
+			InitialID: dat.ViewPacketID,
+			CurrentID: dat.ViewPacketID,
 		})
 	}
 	imgui.SameLine()
 	if imgui.Button("global") {
 		rpl.PinnedFindings = append(rpl.PinnedFindings, pinnedFinding{
 			Packets:   slices.Clone(rpl.Replay.Packets),
-			InitialID: rpl.ViewingPacketSearch.ResultGlobalIDs[rpl.ViewingPacketID],
-			CurrentID: rpl.ViewingPacketSearch.ResultGlobalIDs[rpl.ViewingPacketID],
+			InitialID: dat.ResultGlobalIDs[dat.ViewPacketID],
+			CurrentID: dat.ResultGlobalIDs[dat.ViewPacketID],
 		})
 	}
 	imgui.SameLine()
 	if imgui.Button("content") {
-		pinnedPacketsByContent = append(pinnedPacketsByContent, rpl.Replay.Packets[rpl.ViewingPacketID])
+		pinnedPacketsByContent = append(pinnedPacketsByContent, rpl.Replay.Packets[dat.ViewPacketID])
 	}
 
-	uiShowPacketListInspect(rpl.ViewingPacketSearch.Results, &rpl.ViewingPacketID, &rpl.ViewingPacketListingMode)
+	imgui.SameLine()
+	imgui.AlignTextToFramePadding()
+	// ^ff0f81f204ccf03400fe01
+	imgui.TextUnformatted("export search results")
+	imgui.SameLine()
+	if imgui.Button("json##exportsearch") {
+		buf, err := json.MarshalIndent(dat.Results, "", "\t")
+		log.Err(err).Msg("marshal search as json")
+		log.Err(os.WriteFile("out.json", buf, 0644)).Msg("write search as json")
+	}
+
+	uiShowPacketListInspect(dat.Results, &dat.ViewPacketID, &dat.ViewMode)
 }
 
 func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mode *int32) {
@@ -1280,9 +1289,9 @@ func uiShowPacket(pk *wrpl.WRPLRawPacket) {
 	}
 	imgui.SameLine()
 	if imgui.Button("json") {
-		buf := bytes.Buffer{}
-		json.MarshalIndent(pk, "", "\t")
-		imgui.SetClipboardText(buf.String())
+		buf, err := json.MarshalIndent(pk, "", "\t")
+		log.Err(err).Msg("copy packet json")
+		imgui.SetClipboardText(string(buf))
 	}
 	imgui.SameLine()
 	if imgui.Button("spew") {
