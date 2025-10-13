@@ -23,6 +23,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -40,9 +41,11 @@ type WRPL struct {
 	Header       WRPLHeader
 	Settings     map[string]any
 	SettingsJSON string
+	SettingsBLK  []byte
 	Packets      []*WRPLRawPacket
 	Results      map[string]any
 	ResultsJSON  string
+	ResultsBLK   []byte
 	Players      []*Player
 }
 
@@ -98,12 +101,12 @@ func ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (
 	}
 
 	if ret.Header.SettingsBLKSize > 0 && parseSettings {
-		settingsBlock := make([]byte, ret.Header.SettingsBLKSize)
-		_, err := io.ReadFull(r, settingsBlock)
+		ret.SettingsBLK = make([]byte, ret.Header.SettingsBLKSize)
+		_, err := io.ReadFull(r, ret.SettingsBLK)
 		if err != nil {
 			return ret, fmt.Errorf("reading settings blk: %w", err)
 		}
-		ret.Settings, err = ParseBlk(settingsBlock)
+		ret.Settings, err = ParseBlk(ret.SettingsBLK)
 		if err != nil {
 			return ret, fmt.Errorf("parsing settings blk: %w", err)
 		}
@@ -136,11 +139,11 @@ func ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (
 		if err != nil {
 			return ret, fmt.Errorf("seeking for results blk")
 		}
-		resultsBlock, err := io.ReadAll(r)
+		ret.ResultsBLK, err = io.ReadAll(r)
 		if err != nil {
 			return ret, fmt.Errorf("reading results blk: %w", err)
 		}
-		ret.Results, err = ParseBlk(resultsBlock)
+		ret.Results, err = ParseBlk(ret.ResultsBLK)
 		if err != nil {
 			return ret, fmt.Errorf("parsing results blk: %w", err)
 		}
@@ -149,4 +152,49 @@ func ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (
 	}
 
 	return
+}
+
+func WriteWRPL(rpl *WRPL) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	err := binary.Write(buf, binary.LittleEndian, rpl.Header)
+	if err != nil {
+		return nil, err
+	}
+	if rpl.Header.SettingsBLKSize > 0 {
+		if rpl.SettingsBLK == nil {
+			return nil, errors.New("settings size present but blob not provided, can't write blk on my own")
+		}
+		n, err := buf.Write(rpl.SettingsBLK)
+		if err != nil {
+			return nil, err
+		}
+		if n != int(rpl.Header.SettingsBLKSize) {
+			return nil, fmt.Errorf("missmatch of blk size, header %d provided blob %d", rpl.Header.SettingsBLKSize, n)
+		}
+	}
+	pkw, err := zlib.NewWriterLevel(buf, 3)
+	if err != nil {
+		return nil, err
+	}
+	err = WritePackets(pkw, rpl.Packets)
+	if err != nil {
+		return nil, err
+	}
+	pkw.Close()
+	rpl.Header.ResultsBlkOffset = int32(buf.Len())
+	buf2 := &bytes.Buffer{}
+	err = binary.Write(buf2, binary.LittleEndian, rpl.Header)
+	if err != nil {
+		return nil, err
+	}
+	ret := buf.Bytes()
+	ret2 := buf2.Bytes()
+	for i := range len(ret2) {
+		ret[i] = ret2[i]
+	}
+	_, err = buf.Write(rpl.ResultsBLK)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }

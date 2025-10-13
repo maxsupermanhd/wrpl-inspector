@@ -90,3 +90,50 @@ func readVariableLengthSize(r io.Reader) (uint32, error) {
 
 	return uint32(payload), nil
 }
+
+func writeVariableLengthSize(w io.Writer, size uint32) error {
+	var buf [5]byte
+
+	// 1-byte: 10xxxxxx -> values 0..0x3F (6 bits)
+	if size <= 0x3F {
+		buf[0] = 0x80 | byte(size&0x7F) // set high bit, ensure 0x40 is clear
+		_, err := w.Write(buf[:1])
+		return err
+	}
+
+	// 2-byte: 01xxxxxx xxxxxxxx -> values 0x40..0x3FFF (14 bits)
+	if size <= 0x3FFF {
+		v := int64(size) ^ 0x4000
+		buf[0] = byte((v >> 8) & 0xFF)
+		buf[1] = byte(v & 0xFF)
+		_, err := w.Write(buf[:2])
+		return err
+	}
+
+	// 3-byte: 001xxxxx xxxxxxxx xxxxxxxx -> values up to 0x1FFFFF (21 bits)
+	if size <= 0x1FFFFF {
+		v := int64(size) ^ 0x200000
+		buf[0] = byte((v >> 16) & 0xFF)
+		buf[1] = byte((v >> 8) & 0xFF)
+		buf[2] = byte(v & 0xFF)
+		_, err := w.Write(buf[:3])
+		return err
+	}
+
+	// 4-byte: 0001xxxx xxxxxxxx xxxxxxxx xxxxxxxx -> values up to 0x0FFFFFFF (28 bits)
+	if size <= 0x0FFFFFFF {
+		v := int64(size) ^ 0x10000000
+		buf[0] = byte((v >> 24) & 0xFF)
+		buf[1] = byte((v >> 16) & 0xFF)
+		buf[2] = byte((v >> 8) & 0xFF)
+		buf[3] = byte(v & 0xFF)
+		_, err := w.Write(buf[:4])
+		return err
+	}
+
+	// 5-byte: 0000xxxx followed by little-endian u32 -> values > 0x0FFFFFFF up to uint32 max
+	buf[0] = 0x00
+	binary.LittleEndian.PutUint32(buf[1:], size)
+	_, err := w.Write(buf[:5])
+	return err
+}

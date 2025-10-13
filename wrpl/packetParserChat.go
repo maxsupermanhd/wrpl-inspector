@@ -18,17 +18,42 @@
 
 package wrpl
 
-//go:generate stringer --type PacketType
-type PacketType byte
+import "bytes"
 
-const (
-	PacketTypeEndMarker        PacketType = 0
-	PacketTypeStartMarker      PacketType = 1
-	PacketTypeAircraftSmall    PacketType = 2
-	PacketTypeChat             PacketType = 3
-	PacketTypeMPI              PacketType = 4
-	PacketTypeNextSegment      PacketType = 5
-	PacketTypeECS              PacketType = 6
-	PacketTypeSnapshot         PacketType = 7
-	PacketTypeReplayHeaderInfo PacketType = 8
-)
+type ParsedPacketChat struct {
+	Sender      string
+	Content     string
+	ChannelType byte
+	IsEnemy     byte
+}
+
+func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
+	r := bytes.NewReader(pk.PacketPayload)
+	parsed := ParsedPacketChat{}
+	ret = &ParsedPacket{
+		Name: "chat",
+		Data: parsed,
+	}
+	_, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	parsed.Sender, err = PacketReadLenString(r)
+	if err != nil {
+		return
+	}
+	parsed.Content, err = PacketReadLenString(r)
+	if err != nil {
+		return
+	}
+	parsed.ChannelType, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	parsed.IsEnemy, err = r.ReadByte()
+	if err != nil {
+		return
+	}
+	ret.Data = parsed
+	return
+}

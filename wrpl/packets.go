@@ -42,7 +42,6 @@ func (pk *WRPLRawPacket) Time() time.Duration {
 func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error) {
 	ret = []*WRPLRawPacket{}
 	currentTime := uint32(0)
-	packetNum := 0
 	for {
 		packetSize, err := readVariableLengthSize(r)
 		if err != nil {
@@ -52,7 +51,6 @@ func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error)
 			return ret, fmt.Errorf("reading packet size: %w", err)
 		}
 		if packetSize == 0 {
-			// return ret, fmt.Errorf("empty payload of packet %d", packetNum)
 			continue
 		}
 		packetBytes := make([]byte, packetSize)
@@ -60,7 +58,6 @@ func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error)
 		if err != nil {
 			return ret, fmt.Errorf("reading packet payload: %w", err)
 		}
-		packetNum++
 
 		firstByte := packetBytes[0]
 		var packetType byte
@@ -88,4 +85,39 @@ func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error)
 		ret = append(ret, pk)
 	}
 	return
+}
+
+func WritePackets(w io.Writer, packets []*WRPLRawPacket) error {
+	currentTime := int64(-1)
+	for _, p := range packets {
+		packetType := byte(p.PacketType)
+		packetSize := uint32(len(p.PacketPayload)) + 1
+		addTimestamp := currentTime != int64(p.CurrentTime)
+		if addTimestamp {
+			packetSize += 4
+		} else {
+			packetType |= 0b00010000
+		}
+		var err error
+		err = writeVariableLengthSize(w, packetSize)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write([]byte{packetType})
+		if err != nil {
+			return err
+		}
+		if addTimestamp {
+			err = binary.Write(w, binary.LittleEndian, p.CurrentTime)
+			if err != nil {
+				return err
+			}
+		}
+		_, err = w.Write(p.PacketPayload)
+		if err != nil {
+			return err
+		}
+		currentTime = int64(p.CurrentTime)
+	}
+	return nil
 }
