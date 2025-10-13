@@ -63,17 +63,32 @@ var (
 )
 
 type parsedReplay struct {
-	LoadedFrom               string
-	FileContents             []byte
-	Replay                   *wrpl.WRPL
+	LoadedFrom   string
+	FileContents []byte
+	Replay       *wrpl.WRPL
+
 	ViewingPacketMode        int32
 	ViewingPacketListingMode int32
 	ViewingPacketID          int32
 	ViewingPacketSearch      uiSearchPacketData
-	PinnedFindings           []pinnedFinding
+
+	PinnedFindings []pinnedFinding
+
 	ParsedPacketsCurrentName int32
 	ParsedPacketNames        []string
 	ParsedPackets            [][]*wrpl.WRPLRawPacket
+
+	beProcessed      bool
+	beFirstFit       bool
+	beFilter         string
+	beFilterRegex    *regexp.Regexp
+	beFilterErr      error
+	bePlotX          []float32
+	bePlotY          []float32
+	bePlotRaw        []string
+	bePlotRawFull    []string
+	beInterpretType  int32
+	beInterpretShift int32
 }
 
 type pinnedFinding struct {
@@ -146,9 +161,11 @@ func main() {
 			continue
 		}
 		openReplays = append(openReplays, &parsedReplay{
-			LoadedFrom:   loadPath,
-			FileContents: replayBytes,
-			Replay:       wrpl,
+			LoadedFrom:      loadPath,
+			FileContents:    replayBytes,
+			Replay:          wrpl,
+			beFilter:        "^00035843d03f00fe01(........)",
+			beInterpretType: 4,
 		})
 	}
 	imBackend.Run(loop)
@@ -721,67 +738,56 @@ func uiShowParsed(rpl *parsedReplay) {
 }
 
 var (
-	beProcessed          = false
-	beFirstFit           = false
-	beFilter             = "^00035843d03f00fe01(........)"
-	beFilterRegex        *regexp.Regexp
-	beFilterErr          error
-	bePlotX              []float32
-	bePlotY              []float32
-	bePlotRaw            []string
-	bePlotRawFull        []string
-	beInterpretType      = int32(4)
 	beInterpretTypeNames = []string{"uint8", "uint16", "uint32", "uint64", "float32", "float64"}
-	beInterpretShift     = int32(0)
 )
 
 func genByteInterp(rpl *parsedReplay) error {
-	bePlotX = nil
-	bePlotY = nil
-	bePlotRaw = nil
-	bePlotRawFull = nil
-	beFilterRegex, beFilterErr = regexp.Compile(beFilter)
-	if beFilterErr != nil {
-		return beFilterErr
+	rpl.bePlotX = nil
+	rpl.bePlotY = nil
+	rpl.bePlotRaw = nil
+	rpl.bePlotRawFull = nil
+	rpl.beFilterRegex, rpl.beFilterErr = regexp.Compile(rpl.beFilter)
+	if rpl.beFilterErr != nil {
+		return rpl.beFilterErr
 	}
-	bePlotX = []float32{}
-	bePlotY = []float32{}
-	bePlotRaw = []string{}
-	bePlotRawFull = []string{}
+	rpl.bePlotX = []float32{}
+	rpl.bePlotY = []float32{}
+	rpl.bePlotRaw = []string{}
+	rpl.bePlotRawFull = []string{}
 	for _, pk := range rpl.Replay.Packets {
 		hexpayload := hex.EncodeToString(pk.PacketPayload)
-		matches := beFilterRegex.FindStringSubmatch(hexpayload)
+		matches := rpl.beFilterRegex.FindStringSubmatch(hexpayload)
 		if matches == nil {
 			continue
 		}
 		if len(matches) < 2 {
 			continue
 		}
-		bePlotRawFull = append(bePlotRawFull, hexpayload)
+		rpl.bePlotRawFull = append(rpl.bePlotRawFull, hexpayload)
 		valY := matches[1]
 		bY, err := hex.DecodeString(valY)
 		if err != nil {
 			return err
 		}
-		bePlotRaw = append(bePlotRaw, valY)
-		switch beInterpretType {
+		rpl.bePlotRaw = append(rpl.bePlotRaw, valY)
+		switch rpl.beInterpretType {
 		case 0:
-			bePlotY = append(bePlotY, float32(interpretBytes[uint8](bY, beInterpretShift)))
+			rpl.bePlotY = append(rpl.bePlotY, float32(interpretBytes[uint8](bY, rpl.beInterpretShift)))
 		case 1:
-			bePlotY = append(bePlotY, float32(interpretBytes[uint16](bY, beInterpretShift)))
+			rpl.bePlotY = append(rpl.bePlotY, float32(interpretBytes[uint16](bY, rpl.beInterpretShift)))
 		case 2:
-			bePlotY = append(bePlotY, float32(interpretBytes[uint32](bY, beInterpretShift)))
+			rpl.bePlotY = append(rpl.bePlotY, float32(interpretBytes[uint32](bY, rpl.beInterpretShift)))
 		case 3:
-			bePlotY = append(bePlotY, float32(interpretBytes[uint64](bY, beInterpretShift)))
+			rpl.bePlotY = append(rpl.bePlotY, float32(interpretBytes[uint64](bY, rpl.beInterpretShift)))
 		case 4:
-			bePlotY = append(bePlotY, float32(interpretBytes[float32](bY, beInterpretShift)))
+			rpl.bePlotY = append(rpl.bePlotY, float32(interpretBytes[float32](bY, rpl.beInterpretShift)))
 		case 5:
-			bePlotY = append(bePlotY, float32(interpretBytes[float64](bY, beInterpretShift)))
+			rpl.bePlotY = append(rpl.bePlotY, float32(interpretBytes[float64](bY, rpl.beInterpretShift)))
 		default:
 			return errors.ErrUnsupported
 		}
 		if len(matches) < 3 {
-			bePlotX = append(bePlotX, float32(pk.CurrentTime)/256)
+			rpl.bePlotX = append(rpl.bePlotX, float32(pk.CurrentTime)/256)
 			continue
 		}
 		valX := matches[2]
@@ -789,20 +795,20 @@ func genByteInterp(rpl *parsedReplay) error {
 		if err != nil {
 			return err
 		}
-		bePlotRaw = append(bePlotRaw, valX)
-		switch beInterpretType {
+		rpl.bePlotRaw = append(rpl.bePlotRaw, valX)
+		switch rpl.beInterpretType {
 		case 0:
-			bePlotX = append(bePlotX, float32(interpretBytes[uint8](bX, beInterpretShift)))
+			rpl.bePlotX = append(rpl.bePlotX, float32(interpretBytes[uint8](bX, rpl.beInterpretShift)))
 		case 1:
-			bePlotX = append(bePlotX, float32(interpretBytes[uint16](bX, beInterpretShift)))
+			rpl.bePlotX = append(rpl.bePlotX, float32(interpretBytes[uint16](bX, rpl.beInterpretShift)))
 		case 2:
-			bePlotX = append(bePlotX, float32(interpretBytes[uint32](bX, beInterpretShift)))
+			rpl.bePlotX = append(rpl.bePlotX, float32(interpretBytes[uint32](bX, rpl.beInterpretShift)))
 		case 3:
-			bePlotX = append(bePlotX, float32(interpretBytes[uint64](bX, beInterpretShift)))
+			rpl.bePlotX = append(rpl.bePlotX, float32(interpretBytes[uint64](bX, rpl.beInterpretShift)))
 		case 4:
-			bePlotX = append(bePlotX, float32(interpretBytes[float32](bX, beInterpretShift)))
+			rpl.bePlotX = append(rpl.bePlotX, float32(interpretBytes[float32](bX, rpl.beInterpretShift)))
 		case 5:
-			bePlotX = append(bePlotX, float32(interpretBytes[float64](bX, beInterpretShift)))
+			rpl.bePlotX = append(rpl.bePlotX, float32(interpretBytes[float64](bX, rpl.beInterpretShift)))
 		default:
 			return errors.ErrUnsupported
 		}
@@ -818,48 +824,48 @@ func interpretBytes[T any](b []byte, shift int32) T {
 }
 
 func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
-	if !beProcessed {
+	if !rpl.beProcessed {
 		// ^00035843d03f00fe01(....)
-		beProcessed = true
-		beFirstFit = true
-		beFilterErr = genByteInterp(rpl)
-		if beFilterErr != nil {
-			bePlotX = nil
+		rpl.beProcessed = true
+		rpl.beFirstFit = true
+		rpl.beFilterErr = genByteInterp(rpl)
+		if rpl.beFilterErr != nil {
+			rpl.bePlotX = nil
 		}
 	}
-	if imgui.InputTextWithHint("regex filter", "", &beFilter, 0, func(data imgui.InputTextCallbackData) int {
-		beProcessed = false
+	if imgui.InputTextWithHint("regex filter", "", &rpl.beFilter, 0, func(data imgui.InputTextCallbackData) int {
+		rpl.beProcessed = false
 		return 0
 	}) {
-		beProcessed = false
+		rpl.beProcessed = false
 	}
-	if imgui.InputInt("shift", &beInterpretShift) {
-		beProcessed = false
+	if imgui.InputInt("shift", &rpl.beInterpretShift) {
+		rpl.beProcessed = false
 	}
-	if imgui.ComboStrarr("##view mode", &beInterpretType, beInterpretTypeNames, int32(len(beInterpretTypeNames))) {
-		beProcessed = false
+	if imgui.ComboStrarr("##view mode", &rpl.beInterpretType, beInterpretTypeNames, int32(len(beInterpretTypeNames))) {
+		rpl.beProcessed = false
 	}
-	if beFilterErr != nil {
-		imgui.TextUnformatted("Error: " + beFilterErr.Error())
+	if rpl.beFilterErr != nil {
+		imgui.TextUnformatted("Error: " + rpl.beFilterErr.Error())
 		return
 	}
 	if imgui.SmallButton("reprocess") {
-		beProcessed = false
+		rpl.beProcessed = false
 	}
 	imgui.SameLine()
-	imgui.TextUnformatted(fmt.Sprintf("%d samples", len(bePlotX)))
+	imgui.TextUnformatted(fmt.Sprintf("%d samples", len(rpl.bePlotX)))
 	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
-	if bePlotX == nil {
+	if rpl.bePlotX == nil {
 		imgui.TextUnformatted("nil")
-	} else if len(bePlotX) == 0 {
+	} else if len(rpl.bePlotX) == 0 {
 		imgui.TextUnformatted("0 len")
 	} else {
-		if beFirstFit {
-			beFirstFit = false
+		if rpl.beFirstFit {
+			rpl.beFirstFit = false
 			implot.SetNextAxesToFit()
 		}
 		if implot.BeginPlot("values plot") {
-			implot.PlotLineFloatPtrFloatPtr("val", &bePlotX[0], &bePlotY[0], int32(len(bePlotX)))
+			implot.PlotLineFloatPtrFloatPtr("val", &rpl.bePlotX[0], &rpl.bePlotY[0], int32(len(rpl.bePlotX)))
 			implot.EndPlot()
 		}
 		if imgui.BeginChildStr("values table child") {
@@ -870,16 +876,16 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 				imgui.TableSetupColumn("raw")
 				imgui.TableSetupColumn("packet")
 				imgui.TableHeadersRow()
-				for i := range bePlotX {
+				for i := range rpl.bePlotX {
 					imgui.TableNextRow()
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotX[i]))
+					imgui.TextUnformatted(fmt.Sprintf("%#v", rpl.bePlotX[i]))
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotY[i]))
+					imgui.TextUnformatted(fmt.Sprintf("%#v", rpl.bePlotY[i]))
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotRaw[i]))
+					imgui.TextUnformatted(fmt.Sprintf("%#v", rpl.bePlotRaw[i]))
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotRawFull[i]))
+					imgui.TextUnformatted(fmt.Sprintf("%#v", rpl.bePlotRawFull[i]))
 				}
 				imgui.EndTable()
 			}
