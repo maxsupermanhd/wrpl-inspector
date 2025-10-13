@@ -83,6 +83,7 @@ func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
 		Settings:     parts[0].Settings,
 		SettingsJSON: parts[0].SettingsJSON,
 		Packets:      []*WRPLRawPacket{},
+		Players:      parts[0].Players,
 	}
 	for k := range keys {
 		ret.Packets = append(ret.Packets, parts[k].Packets...)
