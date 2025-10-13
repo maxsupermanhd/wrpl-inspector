@@ -29,7 +29,7 @@ import (
 
 type WRPLRawPacket struct {
 	CurrentTime   uint32
-	PacketType    PacketType
+	PacketType    byte
 	PacketPayload []byte
 	Parsed        *ParsedPacket
 	ParseError    error
@@ -78,7 +78,7 @@ func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error)
 		}
 		pk := &WRPLRawPacket{
 			CurrentTime:   currentTime,
-			PacketType:    PacketType(packetType),
+			PacketType:    packetType,
 			PacketPayload: packetPayload,
 		}
 		pk.Parsed, pk.ParseError = ParsePacket(rpl, pk)

@@ -120,35 +120,24 @@ func parseSlotMessage(rpl *WRPL, slot byte, msg []byte) {
 		return
 	}
 	r := bytes.NewReader(msg)
-	pkType0, err := r.ReadByte()
+	header := make([]byte, 5)
+	_, err := r.Read(header)
 	if err != nil {
 		return
 	}
-	Unk0, err := r.ReadByte()
-	if err != nil {
+	if header[0] != 0x70 || header[4] != 0x60 {
 		return
 	}
-	_ = Unk0
-	pkType1, err := r.ReadByte()
-	if err != nil {
+	if header[3] != 0x08 && header[3] != 0x30 {
 		return
 	}
-	Unk1, err := r.ReadByte()
-	if err != nil {
-		return
-	}
-	_ = Unk1
-	pkType2, err := r.ReadByte()
-	if err != nil {
-		return
-	}
-	if pkType0 != 0x70 || pkType2 != 0x60 {
-		return
-	}
-	if pkType1 == 0x01 {
-		parseSlotMessage_PlayerInit(rpl, slot, r)
-	} else {
+	switch header[2] {
+	case 0x00:
 		parseSlotMessage_SetTitle(rpl, slot, r)
+	case 0x01:
+		parseSlotMessage_PlayerInit(rpl, slot, r)
+	case 0x02:
+		parseSlotMessage_PlayerInit(rpl, slot, r)
 	}
 }
 

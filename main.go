@@ -67,6 +67,8 @@ type parsedReplay struct {
 	FileContents []byte
 	Replay       *wrpl.WRPL
 
+	SlotMessages []*wrpl.WRPLRawPacket
+
 	uiPacketInspect *uiPacketInspectData
 
 	PinnedFindings []pinnedFinding
@@ -455,6 +457,29 @@ func addReplayTab(rpl *parsedReplay) {
 	if rpl.uiPacketInspect == nil {
 		rpl.uiPacketInspect = &uiPacketInspectData{}
 	}
+	if rpl.SlotMessages == nil {
+		for _, pk := range rpl.Replay.Packets {
+			if pk == nil {
+				continue
+			}
+			if pk.Parsed == nil {
+				continue
+			}
+			pk1, ok := pk.Parsed.Data.(wrpl.ParsedPacketSlotMessage)
+			if !ok {
+				continue
+			}
+			for _, pk2 := range pk1.Messages {
+				rpl.SlotMessages = append(rpl.SlotMessages, &wrpl.WRPLRawPacket{
+					CurrentTime:   pk.CurrentTime,
+					PacketType:    pk2.Slot,
+					PacketPayload: pk2.Message,
+					Parsed:        &wrpl.ParsedPacket{},
+					ParseError:    nil,
+				})
+			}
+		}
+	}
 	openReplays = append([]*parsedReplay{rpl}, openReplays...)
 }
 
@@ -603,7 +628,8 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 }
 
 func uiShowSlotInfo(rpl *parsedReplay) {
-	if imgui.BeginTable("playersTable", 5) {
+	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
+	if imgui.BeginTableV("playersTable", 5, tableFlags, imgui.Vec2{}, 0) {
 		imgui.TableSetupColumn("n")
 		imgui.TableSetupColumn("name")
 		imgui.TableSetupColumn("clan")
@@ -943,7 +969,7 @@ type uiPacketInspectData struct {
 }
 
 var (
-	uiPacketInspectSubsetNames = []string{"Packet stream"}
+	uiPacketInspectSubsetNames = []string{"Packet stream", "Slot packets"}
 )
 
 func uiShowPacketInspect(rpl *parsedReplay) {
@@ -954,7 +980,9 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 	imgui.TextUnformatted(fmt.Sprintf("Packet count: %d View mode:", len(rpl.Replay.Packets)))
 	imgui.SameLine()
 	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
-	imgui.ComboStrarr("##View mode", &dat.Subset, uiPacketInspectSubsetNames, int32(len(uiPacketInspectSubsetNames)))
+	if imgui.ComboStrarr("##View mode", &dat.Subset, uiPacketInspectSubsetNames, int32(len(uiPacketInspectSubsetNames))) {
+		doSearch = true
+	}
 
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Search")
@@ -978,7 +1006,7 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 		doSearch = true
 	}
 	imgui.SameLine()
-	imgui.SetNextItemWidth(70)
+	imgui.SetNextItemWidth(90)
 	if imgui.InputInt("##type filter", &dat.FilterByType) {
 		doSearch = true
 	}
@@ -1038,8 +1066,14 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 			dat.Error = nil
 		}
 
-		for i, pk := range rpl.Replay.Packets {
-			if dat.EnableFilterByType && pk.PacketType != wrpl.PacketType(dat.FilterByType) {
+		subset := rpl.Replay.Packets
+		switch dat.Subset {
+		case 1:
+			subset = rpl.SlotMessages
+		}
+
+		for i, pk := range subset {
+			if dat.EnableFilterByType && pk.PacketType != byte(dat.FilterByType) {
 				continue
 			}
 			if matchFn(pk.PacketPayload) {
@@ -1138,7 +1172,7 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 		if imgui.BeginTableV("##context", 5, tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
 			imgui.TableSetupColumn("idx")
 			imgui.TableSetupColumn("time")
-			imgui.TableSetupColumn("dt")
+			imgui.TableSetupColumn("delta time")
 			imgui.TableSetupColumn("type")
 			imgui.TableSetupColumn("content")
 			imgui.TableHeadersRow()
