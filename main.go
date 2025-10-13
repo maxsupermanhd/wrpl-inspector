@@ -47,7 +47,6 @@ import (
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/AllenDang/cimgui-go/implot"
 	"github.com/davecgh/go-spew/spew"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
@@ -727,75 +726,95 @@ var (
 	beFilter             = "^00035843d03f00fe01(........)"
 	beFilterRegex        *regexp.Regexp
 	beFilterErr          error
-	bePlotTime           []float32
-	bePlotValues         []float32
-	bePlotValuesRaw      []string
+	bePlotX              []float32
+	bePlotY              []float32
+	bePlotRaw            []string
+	bePlotRawFull        []string
 	beInterpretType      = int32(4)
 	beInterpretTypeNames = []string{"uint8", "uint16", "uint32", "uint64", "float32", "float64"}
 	beInterpretShift     = int32(0)
 )
 
 func genByteInterp(rpl *parsedReplay) error {
-	bePlotTime = nil
-	bePlotValues = nil
-	bePlotValuesRaw = nil
+	bePlotX = nil
+	bePlotY = nil
+	bePlotRaw = nil
+	bePlotRawFull = nil
 	beFilterRegex, beFilterErr = regexp.Compile(beFilter)
 	if beFilterErr != nil {
 		return beFilterErr
 	}
-	bePlotTime = []float32{}
-	bePlotValues = []float32{}
-	bePlotValuesRaw = []string{}
+	bePlotX = []float32{}
+	bePlotY = []float32{}
+	bePlotRaw = []string{}
+	bePlotRawFull = []string{}
 	for _, pk := range rpl.Replay.Packets {
-		matches := beFilterRegex.FindStringSubmatch(hex.EncodeToString(pk.PacketPayload))
+		hexpayload := hex.EncodeToString(pk.PacketPayload)
+		matches := beFilterRegex.FindStringSubmatch(hexpayload)
 		if matches == nil {
 			continue
 		}
 		if len(matches) < 2 {
 			continue
 		}
-		val := matches[1]
-		// log.Info().Any("0", matches).Msg("")
-		b, err := hex.DecodeString(val)
+		bePlotRawFull = append(bePlotRawFull, hexpayload)
+		valY := matches[1]
+		bY, err := hex.DecodeString(valY)
 		if err != nil {
 			return err
 		}
-		b = ShiftBytes(b, int(beInterpretShift))
-		bePlotValuesRaw = append(bePlotValuesRaw, val)
+		bePlotRaw = append(bePlotRaw, valY)
 		switch beInterpretType {
 		case 0:
-			var v uint8
-			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
-			bePlotValues = append(bePlotValues, float32(v))
+			bePlotY = append(bePlotY, float32(interpretBytes[uint8](bY, beInterpretShift)))
 		case 1:
-			var v uint16
-			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
-			bePlotValues = append(bePlotValues, float32(v))
+			bePlotY = append(bePlotY, float32(interpretBytes[uint16](bY, beInterpretShift)))
 		case 2:
-			var v uint32
-			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
-			bePlotValues = append(bePlotValues, float32(v))
+			bePlotY = append(bePlotY, float32(interpretBytes[uint32](bY, beInterpretShift)))
 		case 3:
-			var v uint64
-			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
-			bePlotValues = append(bePlotValues, float32(v))
+			bePlotY = append(bePlotY, float32(interpretBytes[uint64](bY, beInterpretShift)))
 		case 4:
-			var v float32
-			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
-			bePlotValues = append(bePlotValues, float32(v))
+			bePlotY = append(bePlotY, float32(interpretBytes[float32](bY, beInterpretShift)))
 		case 5:
-			var v float64
-			err = binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
-			bePlotValues = append(bePlotValues, float32(v))
+			bePlotY = append(bePlotY, float32(interpretBytes[float64](bY, beInterpretShift)))
 		default:
+			return errors.ErrUnsupported
+		}
+		if len(matches) < 3 {
+			bePlotX = append(bePlotX, float32(pk.CurrentTime)/256)
 			continue
 		}
+		valX := matches[2]
+		bX, err := hex.DecodeString(valX)
 		if err != nil {
 			return err
 		}
-		bePlotTime = append(bePlotTime, float32(pk.CurrentTime)/256)
+		bePlotRaw = append(bePlotRaw, valX)
+		switch beInterpretType {
+		case 0:
+			bePlotX = append(bePlotX, float32(interpretBytes[uint8](bX, beInterpretShift)))
+		case 1:
+			bePlotX = append(bePlotX, float32(interpretBytes[uint16](bX, beInterpretShift)))
+		case 2:
+			bePlotX = append(bePlotX, float32(interpretBytes[uint32](bX, beInterpretShift)))
+		case 3:
+			bePlotX = append(bePlotX, float32(interpretBytes[uint64](bX, beInterpretShift)))
+		case 4:
+			bePlotX = append(bePlotX, float32(interpretBytes[float32](bX, beInterpretShift)))
+		case 5:
+			bePlotX = append(bePlotX, float32(interpretBytes[float64](bX, beInterpretShift)))
+		default:
+			return errors.ErrUnsupported
+		}
 	}
 	return nil
+}
+
+func interpretBytes[T any](b []byte, shift int32) T {
+	b = ShiftBytes(b, int(shift))
+	var v T
+	binary.Read(bytes.NewReader(b), binary.LittleEndian, &v)
+	return v
 }
 
 func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
@@ -805,7 +824,7 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 		beFirstFit = true
 		beFilterErr = genByteInterp(rpl)
 		if beFilterErr != nil {
-			bePlotTime = nil
+			bePlotX = nil
 		}
 	}
 	if imgui.InputTextWithHint("regex filter", "", &beFilter, 0, func(data imgui.InputTextCallbackData) int {
@@ -828,36 +847,39 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 		beProcessed = false
 	}
 	imgui.SameLine()
-	imgui.TextUnformatted(fmt.Sprintf("%d samples", len(bePlotTime)))
+	imgui.TextUnformatted(fmt.Sprintf("%d samples", len(bePlotX)))
 	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
-	if bePlotTime == nil {
+	if bePlotX == nil {
 		imgui.TextUnformatted("nil")
-	} else if len(bePlotTime) == 0 {
+	} else if len(bePlotX) == 0 {
 		imgui.TextUnformatted("0 len")
 	} else {
 		if beFirstFit {
 			beFirstFit = false
 			implot.SetNextAxesToFit()
 		}
-		if implot.BeginPlot("values go here") {
-			implot.PlotBarsFloatPtrFloatPtr("val", &bePlotTime[0], &bePlotValues[0], int32(len(bePlotTime)), 1.0)
+		if implot.BeginPlot("values plot") {
+			implot.PlotLineFloatPtrFloatPtr("val", &bePlotX[0], &bePlotY[0], int32(len(bePlotX)))
 			implot.EndPlot()
 		}
-		if imgui.BeginChildStr("values over time") {
+		if imgui.BeginChildStr("values table child") {
 			tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit
-			if imgui.BeginTableV("val table", 3, tableFlags, imgui.Vec2{}, 0.0) {
-				imgui.TableSetupColumn("time")
-				imgui.TableSetupColumn("value")
+			if imgui.BeginTableV("values table", 4, tableFlags, imgui.Vec2{}, 0.0) {
+				imgui.TableSetupColumn("X")
+				imgui.TableSetupColumn("Y")
 				imgui.TableSetupColumn("raw")
+				imgui.TableSetupColumn("packet")
 				imgui.TableHeadersRow()
-				for i := range bePlotTime {
+				for i := range bePlotX {
 					imgui.TableNextRow()
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotTime[i]))
+					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotX[i]))
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotValues[i]))
+					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotY[i]))
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotValuesRaw[i]))
+					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotRaw[i]))
+					imgui.TableNextColumn()
+					imgui.TextUnformatted(fmt.Sprintf("%#v", bePlotRawFull[i]))
 				}
 				imgui.EndTable()
 			}
