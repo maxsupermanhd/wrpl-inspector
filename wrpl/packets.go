@@ -64,14 +64,14 @@ func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error)
 		var packetPayload []byte
 		if firstByte&0b00010000 != 0 {
 			packetType = firstByte ^ 0b00010000
-			packetPayload = packetBytes[1:]
+			packetPayload = packetBytes[2:]
 		} else {
 			packetType = firstByte
 			err = binary.Read(bytes.NewReader(packetBytes[1:]), binary.LittleEndian, &currentTime)
 			if err != nil {
 				return ret, fmt.Errorf("reading packet timestamp: %w", err)
 			}
-			packetPayload = packetBytes[5:]
+			packetPayload = packetBytes[6:]
 		}
 		if packetType == 0 {
 			break

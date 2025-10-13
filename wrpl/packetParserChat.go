@@ -34,10 +34,6 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 		Name: "chat",
 		Data: parsed,
 	}
-	_, err = r.ReadByte()
-	if err != nil {
-		return
-	}
 	parsed.Sender, err = PacketReadLenString(r)
 	if err != nil {
 		return

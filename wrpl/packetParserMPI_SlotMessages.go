@@ -33,7 +33,6 @@ type SlotPrefixedMessage struct {
 }
 
 type ParsedPacketSlotMessage struct {
-	Always0xF0     string `reflectViewHidden:"true"`
 	DataCompressed byte
 	Unk0           string
 	Control        byte
@@ -51,10 +50,6 @@ func parsePacketMPI_SlotMessage(rpl *WRPL, pk *WRPLRawPacket, r *bytes.Reader) (
 	defer func() {
 		ret.Data = parsed
 	}()
-	parsed.Always0xF0, err = ReadToHexStr(r, 1)
-	if err != nil {
-		return
-	}
 	parsed.DataCompressed, err = r.ReadByte()
 	if err != nil {
 		return
