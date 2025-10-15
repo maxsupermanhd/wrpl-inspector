@@ -1109,7 +1109,7 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 	}
 	imgui.SameLine()
 	if imgui.Button("content") {
-		pinnedPacketsByContent = append(pinnedPacketsByContent, rpl.Replay.Packets[dat.ViewPacketID])
+		pinnedPacketsByContent = append(pinnedPacketsByContent, dat.Results[dat.ViewPacketID])
 	}
 
 	imgui.SameLine()
