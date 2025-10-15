@@ -782,6 +782,8 @@ type uiByteInterpreterData struct {
 	bePlotRawFull    []string
 	beInterpretType  int32
 	beInterpretShift int32
+	bePlotIsScatter  bool
+	beShowTable      bool
 }
 
 func genByteInterp(rpl *parsedReplay) error {
@@ -895,9 +897,13 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 		imgui.TextUnformatted("Error: " + dat.beFilterErr.Error())
 		return
 	}
-	if imgui.SmallButton("reprocess") {
+	if imgui.Button("reprocess") {
 		dat.beProcessed = false
 	}
+	imgui.SameLine()
+	imgui.Checkbox("isScatter", &dat.bePlotIsScatter)
+	imgui.SameLine()
+	imgui.Checkbox("showTable", &dat.beShowTable)
 	imgui.SameLine()
 	imgui.TextUnformatted(fmt.Sprintf("%d samples", len(dat.bePlotX)))
 	imgui.SetNextItemWidth(imgui.ContentRegionAvail().X)
@@ -910,11 +916,19 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 			dat.beFirstFit = false
 			implot.SetNextAxesToFit()
 		}
-		if implot.BeginPlot("##da values plot") {
-			implot.PlotLineFloatPtrFloatPtr("val", &dat.bePlotX[0], &dat.bePlotY[0], int32(len(dat.bePlotX)))
+		size := imgui.Vec2{X: -1, Y: -1}
+		if dat.beShowTable {
+			size = imgui.Vec2{X: -1, Y: 0}
+		}
+		if implot.BeginPlotV("##da values plot", size, 0) {
+			if dat.bePlotIsScatter {
+				implot.PlotScatterFloatPtrFloatPtr("val", &dat.bePlotX[0], &dat.bePlotY[0], int32(len(dat.bePlotX)))
+			} else {
+				implot.PlotLineFloatPtrFloatPtr("val", &dat.bePlotX[0], &dat.bePlotY[0], int32(len(dat.bePlotX)))
+			}
 			implot.EndPlot()
 		}
-		if imgui.BeginChildStr("values table child") {
+		if dat.beShowTable && imgui.BeginChildStr("values table child") {
 			tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
 			if imgui.BeginTableV("values table", 4, tableFlags, imgui.Vec2{}, 0.0) {
 				imgui.TableSetupScrollFreeze(0, 1)
