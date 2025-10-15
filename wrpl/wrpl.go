@@ -27,7 +27,10 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 )
 
 type Player struct {
@@ -35,6 +38,12 @@ type Player struct {
 	ClanTag string
 	UserID  uint32
 	Title   string
+}
+
+type EntityPosition struct {
+	Eid     uint16
+	Time    uint32
+	X, Y, Z float64
 }
 
 type WRPL struct {
@@ -47,6 +56,28 @@ type WRPL struct {
 	ResultsJSON  string
 	ResultsBLK   []byte
 	Players      []*Player
+}
+
+func ReadPartedWRPLFolder(folderPath string) (ret *WRPL, err error) {
+	rplsDir, err := os.ReadDir(folderPath)
+	if err != nil {
+		return nil, err
+	}
+	parts := [][]byte{}
+	for _, v := range rplsDir {
+		if v.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(v.Name(), ".wrpl") {
+			continue
+		}
+		part, err := os.ReadFile(filepath.Join(folderPath, v.Name()))
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, part)
+	}
+	return ReadPartedWRPL(parts)
 }
 
 func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
