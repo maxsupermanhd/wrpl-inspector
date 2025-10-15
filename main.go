@@ -502,33 +502,9 @@ func openSingleReplayFile(filePath string) error {
 }
 
 func openSegmentedReplayFolder(folderPath string) error {
-	rplsDir, err := os.ReadDir(folderPath)
+	rpl, err := wrpl.ReadPartedWRPLFolder(folderPath)
 	if err != nil {
 		return err
-	}
-
-	parts := [][]byte{}
-	for _, v := range rplsDir {
-		if v.IsDir() {
-			continue
-		}
-		if !strings.HasSuffix(v.Name(), ".wrpl") {
-			continue
-		}
-		part, err := os.ReadFile(filepath.Join(folderPath, v.Name()))
-		if err != nil {
-			return err
-		}
-		log.Info().Str("path", filepath.Join(folderPath, v.Name())).Msg("opening")
-		parts = append(parts, part)
-	}
-
-	rpl, err := wrpl.ReadPartedWRPL(parts)
-	if err != nil {
-		return fmt.Errorf("reading segmented replay: %w", err)
-	}
-	if rpl == nil {
-		return errors.New("nil rpl")
 	}
 	addReplayTab(&parsedReplay{
 		LoadedFrom:   "opened session dir " + folderPath,
