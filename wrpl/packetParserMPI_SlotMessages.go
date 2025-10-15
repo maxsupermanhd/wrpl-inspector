@@ -157,13 +157,19 @@ func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
 		return
 	}
 	u.Name = strings.Trim(string(uName), "\x00")
-	u.ClanTag, err = PacketReadLenString(r)
+	clanTag, err := PacketReadLenString(r)
 	if err != nil {
 		return
 	}
-	u.Title, err = PacketReadLenString(r)
+	if len(clanTag) > 0 {
+		u.ClanTag = clanTag
+	}
+	title, err := PacketReadLenString(r)
 	if err != nil {
 		return
+	}
+	if len(title) > 0 {
+		u.Title = title
 	}
 	rpl.Players[slot] = u
 }
