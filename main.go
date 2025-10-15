@@ -629,11 +629,12 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 
 func uiShowSlotInfo(rpl *parsedReplay) {
 	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
-	if imgui.BeginTableV("playersTable", 5, tableFlags, imgui.Vec2{}, 0) {
+	if imgui.BeginTableV("playersTable", 6, tableFlags, imgui.Vec2{}, 0) {
 		imgui.TableSetupColumn("n")
 		imgui.TableSetupColumn("name")
 		imgui.TableSetupColumn("clan")
 		imgui.TableSetupColumn("id")
+		imgui.TableSetupColumn("id hex")
 		imgui.TableSetupColumn("title")
 		imgui.TableHeadersRow()
 		for i, u := range rpl.Replay.Players {
@@ -649,6 +650,8 @@ func uiShowSlotInfo(rpl *parsedReplay) {
 			imgui.TextUnformatted(u.ClanTag)
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(strconv.Itoa(int(u.UserID)))
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(fmt.Sprintf("%08x", u.UserID))
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(u.Title)
 		}
