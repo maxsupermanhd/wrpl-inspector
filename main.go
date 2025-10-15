@@ -906,7 +906,7 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 			dat.beFirstFit = false
 			implot.SetNextAxesToFit()
 		}
-		if implot.BeginPlot("values plot") {
+		if implot.BeginPlot("##da values plot") {
 			implot.PlotLineFloatPtrFloatPtr("val", &dat.bePlotX[0], &dat.bePlotY[0], int32(len(dat.bePlotX)))
 			implot.EndPlot()
 		}
