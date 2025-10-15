@@ -106,6 +106,7 @@ func main() {
 	imBackend.CreateWindow("replay inspector", 1300, 1000)
 	imBackend.SetTargetFPS(75)
 	// imgui.CurrentIO().SetConfigViewportsNoAutoMerge(true)
+	imgui.CurrentIO().SetConfigFlags(imgui.CurrentIO().ConfigFlags() & ^imgui.ConfigFlagsViewportsEnable)
 	imBackend.SetDropCallback(func(p []string) {
 		log.Info().Msgf("drop triggered: %v", p)
 	})
