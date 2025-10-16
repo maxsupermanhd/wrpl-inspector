@@ -58,6 +58,8 @@ var (
 	openReplaysLock        sync.Mutex
 	pinnedPacketsByContent = []*wrpl.WRPLRawPacket{}
 
+	humanizeTime = true
+
 	showDemoWindowImgui  bool
 	showDemoWindowImplot bool
 )
@@ -809,7 +811,7 @@ func genByteInterp(rpl *parsedReplay) error {
 			return errors.ErrUnsupported
 		}
 		if len(matches) < 3 {
-			dat.bePlotX = append(dat.bePlotX, float32(pk.CurrentTime)/256)
+			dat.bePlotX = append(dat.bePlotX, float32(pk.CurrentTime))
 			continue
 		}
 		valX := matches[2]
@@ -1117,6 +1119,9 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 		log.Err(os.WriteFile("out.json", buf, 0644)).Msg("write search as json")
 	}
 
+	imgui.SameLine()
+	imgui.Checkbox("humanize time", &humanizeTime)
+
 	uiShowPacketListInspect(dat.Results, &dat.ViewPacketID, &dat.ViewMode)
 }
 
@@ -1166,8 +1171,8 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 		if imgui.BeginTableV("##context", 5, tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
 			imgui.TableSetupColumn("idx")
 			imgui.TableSetupColumn("time")
-			imgui.TableSetupColumn("delta time")
-			imgui.TableSetupColumn("type")
+			imgui.TableSetupColumn("dtime")
+			imgui.TableSetupColumn("t")
 			imgui.TableSetupColumn("content")
 			imgui.TableHeadersRow()
 			for offset := range contextSize*2 + 1 {
@@ -1185,15 +1190,23 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 				if inRange(packets, i) {
 					pk := packets[i]
 					imgui.TableNextColumn()
-					imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime)))
-					if numLinesInRow > 1 {
+					if humanizeTime {
 						imgui.TextUnformatted(pk.Time().String())
+					} else {
+						imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime)))
+						if numLinesInRow > 1 {
+							imgui.TextUnformatted(pk.Time().String())
+						}
 					}
 					imgui.TableNextColumn()
 					if inRange(packets, i-1) {
-						imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime) - int(packets[i-1].CurrentTime)))
-						if numLinesInRow > 1 {
+						if humanizeTime {
 							imgui.TextUnformatted((pk.Time() - packets[i-1].Time()).String())
+						} else {
+							imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime) - int(packets[i-1].CurrentTime)))
+							if numLinesInRow > 1 {
+								imgui.TextUnformatted((pk.Time() - packets[i-1].Time()).String())
+							}
 						}
 					} else {
 						imgui.TextUnformatted("0")
@@ -1268,7 +1281,7 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 			if prevTime == int(packets[i].CurrentTime) {
 				plY[len(plY)-1]++
 			} else {
-				plX = append(plX, float32(packets[i].CurrentTime)/256)
+				plX = append(plX, float32(packets[i].CurrentTime))
 				plY = append(plY, float32(1))
 				prevTime = int(packets[i].CurrentTime)
 			}
@@ -1281,7 +1294,7 @@ func uiShowPacketListInspect(packets []*wrpl.WRPLRawPacket, selected *int32, mod
 		plX := []float32{}
 		plY := []float32{}
 		for i := range packets {
-			plX = append(plX, float32(packets[i].CurrentTime)/256)
+			plX = append(plX, float32(packets[i].CurrentTime))
 			plY = append(plY, float32(len(packets[i].PacketPayload)))
 		}
 		if implot.BeginPlot("##da plot search") {

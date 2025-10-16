@@ -36,7 +36,7 @@ type WRPLRawPacket struct {
 }
 
 func (pk *WRPLRawPacket) Time() time.Duration {
-	return time.Duration(pk.CurrentTime/256) * time.Millisecond
+	return time.Duration(pk.CurrentTime) * time.Millisecond
 }
 
 func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error) {
@@ -67,7 +67,7 @@ func ParsePacketStream(rpl *WRPL, r io.Reader) (ret []*WRPLRawPacket, err error)
 			packetPayload = packetBytes[2:]
 		} else {
 			packetType = firstByte
-			err = binary.Read(bytes.NewReader(packetBytes[1:]), binary.LittleEndian, &currentTime)
+			err = binary.Read(bytes.NewReader(packetBytes[2:]), binary.LittleEndian, &currentTime)
 			if err != nil {
 				return ret, fmt.Errorf("reading packet timestamp: %w", err)
 			}
