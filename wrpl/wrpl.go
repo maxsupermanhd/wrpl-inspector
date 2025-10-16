@@ -102,6 +102,9 @@ func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
 			parts[int(rpl.Header.ReplayPartNumber)] = rpl
 		}
 	}
+	if len(parts) == 0 {
+		return nil, errors.New("no server-side replays found in the set")
+	}
 	keys := slices.Collect(maps.Keys(parts))
 	slices.Sort(keys)
 	for i, v := range keys {
