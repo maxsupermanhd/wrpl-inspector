@@ -16,21 +16,27 @@ A golang library and dear-imgui ui to explore War Thunder replay format
 > Information provided may be incomplete/innacurate.
 > If you want to propose imporvements feel free to open issue, pull request or contact me via Discord @flexcoral (343418440423309314) ([invite](https://discord.com/invite/DFsMKWJJPN)).
 
-- Opening multiple individual replay files at the same time
-- Downloading server replay from session ID
-- Opening segmented server replay and combining them
-- Parsing most of the static binary header
-- Showing settings BLK (if present)
-- Showing results BLK (if present)
-- Opening and parsing packet stream
-- Parsing chat packets
-- Parsing award packets
+- Basics
+  - Parsing most of the static binary header
+  - Showing settings BLK (if present)
+  - Showing results BLK (if present)
+  - Opening and parsing packet stream
+  - Opening multiple individual replay files at the same time
+- Server replays
+  - Downloading server replay from session ID
+  - Opening segmented server replay and combining them
+- Packets
+  - Parsing chat packets
+  - Parsing award packets
+  - Parsing kill packets
+  - Parsing movement packets (server, client only self)
 
 ## TODOs
 
-- Make sense of movement packets (type 2 "AircraftSmall")
-- Add exporting options for packets (csv/tsv/sqlite?)
-- Improve replay opening experience, tree view location (directory) > session > files
+- Make sense of:
+  - aircraft movement packets (type 2 "AircraftSmall")
+  - client: other's movement packets
+- Add more exporting options for filtered packets (csv/tsv/sqlite?)
 - Packet diffing, generally capability for easier comparing of packets from replay to replay
 - Potentially syncing packets and video stream for better context awareness in packet view
 
