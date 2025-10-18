@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"wrpl-inspector/wrpl"
+
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 )
 
 func main() {

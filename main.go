@@ -40,7 +40,8 @@ import (
 	"sync"
 	"time"
 	"unsafe"
-	"wrpl-inspector/wrpl"
+
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 
 	"github.com/AllenDang/cimgui-go/backend"
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
