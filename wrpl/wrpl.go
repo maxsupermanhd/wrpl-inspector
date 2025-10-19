@@ -107,9 +107,18 @@ func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
 	}
 	keys := slices.Collect(maps.Keys(parts))
 	slices.Sort(keys)
-	for i, v := range keys {
-		if i != v {
-			return nil, fmt.Errorf("replay part-index missmatch %d != %d", i, v)
+	if !slices.Contains(keys, 0) {
+		return nil, errors.New("no replay part 0 found")
+	}
+	prevState := -1
+	// 0  1  3  5  7  9...
+	for _, v := range keys {
+		if v%2 == 1 {
+			if prevState+2 != v {
+				return nil, fmt.Errorf("found orderd part %d but previous was %d", v, prevState)
+			} else {
+				prevState = v
+			}
 		}
 	}
 	ret = &WRPL{
