@@ -696,6 +696,12 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 				rfPkField := rfPkVal.Field(fieldIndexes[i])
 				if rfPkField.Kind() == reflect.String {
 					imgui.TextUnformatted(rfPkField.String())
+				} else if rfPkField.Kind() == reflect.Bool {
+					if rfPkField.Bool() {
+						imgui.TextUnformatted("true")
+					} else {
+						imgui.TextUnformatted("false")
+					}
 				} else if rfPkField.CanUint() {
 					imgui.TextUnformatted(strconv.FormatUint(rfPkField.Uint(), 10))
 				} else {
