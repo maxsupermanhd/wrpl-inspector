@@ -708,7 +708,7 @@ func viewReflection(packets []*wrpl.WRPLRawPacket) {
 				} else if rfPkField.CanUint() {
 					imgui.TextUnformatted(strconv.FormatUint(rfPkField.Uint(), 10))
 				} else {
-					imgui.TextUnformatted(rfPkField.String())
+					imgui.TextUnformatted(rfPkVal.String())
 				}
 			}
 		}
