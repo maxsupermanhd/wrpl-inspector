@@ -70,6 +70,8 @@ type parsedReplay struct {
 	FileContents []byte
 	Replay       *wrpl.WRPL
 
+	ParsingFailedPackets []*wrpl.WRPLRawPacket
+
 	SlotMessages []*wrpl.WRPLRawPacket
 
 	uiPacketInspect *uiPacketInspectData
@@ -173,7 +175,7 @@ func loop() {
 	viewport := imgui.MainViewport()
 	imgui.SetNextWindowPos(viewport.WorkPos())
 	imgui.SetNextWindowSize(viewport.WorkSize())
-	windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoDecoration | imgui.WindowFlagsNoMove | imgui.WindowFlagsNoSavedSettings
+	windowFlags := imgui.WindowFlagsNoCollapse | imgui.WindowFlagsNoDecoration | imgui.WindowFlagsNoMove | imgui.WindowFlagsNoSavedSettings | imgui.WindowFlagsNoBringToFrontOnFocus
 	if imgui.BeginV("replay inspector", &isOpen, windowFlags) {
 		uiShowMainWindow()
 		imgui.End()
@@ -462,6 +464,20 @@ func addReplayTab(rpl *parsedReplay) {
 	}
 	if rpl.uiPacketInspect == nil {
 		rpl.uiPacketInspect = &uiPacketInspectData{}
+	}
+	if rpl.ParsingFailedPackets == nil {
+		for _, pk := range rpl.Replay.Packets {
+			if pk == nil {
+				continue
+			}
+			if pk.ParseError == nil {
+				continue
+			}
+			if errors.Is(pk.ParseError, wrpl.ErrUnknownPacket) {
+				continue
+			}
+			rpl.ParsingFailedPackets = append(rpl.ParsingFailedPackets, pk)
+		}
 	}
 	if rpl.SlotMessages == nil {
 		for _, pk := range rpl.Replay.Packets {
@@ -977,7 +993,7 @@ type uiPacketInspectData struct {
 }
 
 var (
-	uiPacketInspectSubsetNames = []string{"Packet stream", "Slot packets"}
+	uiPacketInspectSubsetNames = []string{"Packet stream", "Failed to parse", "Slot packets"}
 )
 
 func uiShowPacketInspect(rpl *parsedReplay) {
@@ -1077,6 +1093,8 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 		subset := rpl.Replay.Packets
 		switch dat.Subset {
 		case 1:
+			subset = rpl.ParsingFailedPackets
+		case 2:
 			subset = rpl.SlotMessages
 		}
 
@@ -1359,6 +1377,9 @@ func uiShowPacket(pk *wrpl.WRPLRawPacket) {
 
 		imgui.TableNextColumn()
 
+		if pk.ParseError != nil {
+			imgui.TextUnformatted("Parse error: " + pk.ParseError.Error())
+		}
 		if pk.Parsed == nil {
 			imgui.TextUnformatted("not parsed")
 		} else {
@@ -1402,9 +1423,6 @@ func ShiftBytes(b []byte, n int) []byte {
 
 func uiShowParsedPacket(pk *wrpl.WRPLRawPacket) {
 	imgui.TextUnformatted("Packet name: " + pk.Parsed.Name)
-	if pk.ParseError != nil {
-		imgui.TextUnformatted("Parse error: " + pk.ParseError.Error())
-	}
 	data := spew.Sdump(pk.Parsed.Data)
 	imgui.InputTextMultiline("## parsed props", &data, imgui.ContentRegionAvail(), 0, nil)
 }
