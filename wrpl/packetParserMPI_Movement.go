@@ -29,7 +29,7 @@ func parsePacketMPI_Movement(rpl *WRPL, pk *WRPLRawPacket, r *bytes.Reader, sign
 		Name: "movement",
 		Data: nil,
 	}
-	parsed.EntityPosition.Eid, err = readEID(danet.NewBitReader(append(signature[2:], pk.PacketPayload...)))
+	parsed.EntityPosition.Eid, err = danet.NewBitReader(append(signature[2:], pk.PacketPayload...)).ReadCompressed()
 	if err != nil {
 		return ret, err
 	}
