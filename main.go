@@ -686,7 +686,11 @@ func uiShowECS(rpl *parsedReplay) {
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(v.Name)
 			imgui.TableNextColumn()
-			imgui.TextUnformatted(fmt.Sprint(v.Components))
+			compTypes := make([]uint32, len(v.Components))
+			for ii, vv := range v.Components {
+				compTypes[ii] = rpl.Replay.Parsed.ECS.ComponentDefs[vv].Type
+			}
+			imgui.TextUnformatted(fmt.Sprint(compTypes))
 		}
 		imgui.EndTable()
 	}
