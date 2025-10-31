@@ -41,7 +41,7 @@ type Player struct {
 }
 
 type EntityPosition struct {
-	Eid     uint16
+	Eid     uint64
 	Time    uint32
 	X, Y, Z float64
 }

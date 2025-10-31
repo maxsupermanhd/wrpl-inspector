@@ -3,6 +3,8 @@ package wrpl
 import (
 	"bytes"
 	"encoding/binary"
+
+	"github.com/maxsupermanhd/wrpl-inspector/danet"
 )
 
 type ParsedPacketMovement struct {
@@ -27,7 +29,10 @@ func parsePacketMPI_Movement(rpl *WRPL, pk *WRPLRawPacket, r *bytes.Reader, sign
 		Name: "movement",
 		Data: nil,
 	}
-	parsed.EntityPosition.Eid = uint16(signature[2]) | uint16(signature[3])<<8
+	parsed.EntityPosition.Eid, err = readEID(danet.NewBitReader(append(signature[2:], pk.PacketPayload...)))
+	if err != nil {
+		return ret, err
+	}
 	binary.Decode(pk.PacketPayload[14:], binary.LittleEndian, &parsed.EntityPosition.X)
 	binary.Decode(pk.PacketPayload[22:], binary.LittleEndian, &parsed.EntityPosition.Y)
 	binary.Decode(pk.PacketPayload[30:], binary.LittleEndian, &parsed.EntityPosition.Z)
