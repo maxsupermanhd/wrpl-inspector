@@ -21,19 +21,21 @@ package wrpl
 import "bytes"
 
 type ParsedPacketChat struct {
+	CurrentTime uint32
 	Sender      string
 	Content     string
 	ChannelType byte
 	IsEnemy     byte
 }
 
-func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
+func parsePacketChat(rpl *WRPL, pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 	r := bytes.NewReader(pk.PacketPayload)
 	parsed := ParsedPacketChat{}
 	ret = &ParsedPacket{
 		Name: "chat",
 		Data: parsed,
 	}
+	parsed.CurrentTime = pk.CurrentTime
 	parsed.Sender, err = PacketReadLenString(r)
 	if err != nil {
 		return
@@ -51,5 +53,6 @@ func parsePacketChat(pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
 		return
 	}
 	ret.Data = parsed
+	rpl.Parsed.Chat = append(rpl.Parsed.Chat, &parsed)
 	return
 }

@@ -1,6 +1,8 @@
 package danet
 
-import "io"
+import (
+	"io"
+)
 
 type BitReader struct {
 	Data      []byte
@@ -23,8 +25,10 @@ func (bs *BitReader) ReadBits(bits int) ([]byte, error) {
 	if bits == 0 {
 		return []byte{}, nil
 	}
-	if bits2bytes(bs.BitOffset+bits) >= len(bs.Data) {
+	bitlen := bits2bytes(bs.BitOffset + bits)
+	if bitlen > len(bs.Data) {
 		return nil, io.EOF
+		// return nil, fmt.Errorf("bitstream bitlen %d >= data len %d: %w", bs.BitOffset+bits, len(bs.Data)*8, io.EOF)
 	}
 
 	offset := bs.BitOffset & 7
@@ -60,6 +64,33 @@ func (bs *BitReader) ReadBits(bits int) ([]byte, error) {
 
 func (bs *BitReader) ReadBytes(n int) ([]byte, error) {
 	return bs.ReadBits(n * 8)
+}
+
+func (bs *BitReader) ReadByte() (byte, error) {
+	r, err := bs.ReadBits(8)
+	if err != nil {
+		return 0, err
+	}
+	return r[0], err
+}
+
+func (bs *BitReader) Read(dst []byte) (n int, err error) {
+	src, err := bs.ReadBytes(len(dst))
+	if err != nil {
+		return 0, err
+	}
+	n = copy(dst, src)
+	return
+}
+
+func (bs *BitReader) ReadLenStr() (string, error) {
+	l, err := bs.ReadByte()
+	if err != nil {
+		return "", err
+	}
+	ret := make([]byte, l)
+	_, err = bs.Read(ret)
+	return string(ret), err
 }
 
 func (bs *BitReader) ReadCompressed() (uint64, error) {

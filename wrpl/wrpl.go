@@ -46,16 +46,22 @@ type EntityPosition struct {
 	X, Y, Z float64
 }
 
+type ParsedInfo struct {
+	Chat    []*ParsedPacketChat
+	Players []*Player
+	ECS     *ECS
+}
+
 type WRPL struct {
 	Header       WRPLHeader
 	Settings     map[string]any
 	SettingsJSON string
 	SettingsBLK  []byte
 	Packets      []*WRPLRawPacket
+	Parsed       *ParsedInfo
 	Results      map[string]any
 	ResultsJSON  string
 	ResultsBLK   []byte
-	Players      []*Player
 }
 
 func ReadPartedWRPLFolder(folderPath string) (ret *WRPL, err error) {
@@ -126,11 +132,11 @@ func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
 		Settings:     parts[0].Settings,
 		SettingsJSON: parts[0].SettingsJSON,
 		Packets:      []*WRPLRawPacket{},
-		Players:      parts[0].Players,
 	}
 	for _, k := range keys {
 		ret.Packets = append(ret.Packets, parts[k].Packets...)
 	}
+	ParsePacketStream(ret)
 	return
 }
 
@@ -170,11 +176,9 @@ func ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (
 			return ret, fmt.Errorf("opening zlib packets stream: %w", err)
 		}
 		defer packetsStream.Close()
-
-		ret.Players = make([]*Player, 0xFF)
-		ret.Packets, err = ParsePacketStream(ret, packetsStream)
+		ret.Packets, err = ReadPacketStream(ret, packetsStream)
 		if err != nil {
-			return nil, fmt.Errorf("parsing packet stream: %w", err)
+			return nil, fmt.Errorf("reading packet stream: %w", err)
 		}
 	}
 

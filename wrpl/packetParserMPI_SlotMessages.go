@@ -171,7 +171,7 @@ func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
 	if len(title) > 0 {
 		u.Title = title
 	}
-	rpl.Players[slot] = u
+	rpl.Parsed.Players[slot] = u
 }
 
 func parseSlotMessage_SetTitle(rpl *WRPL, slot byte, r *bytes.Reader) {
@@ -179,8 +179,8 @@ func parseSlotMessage_SetTitle(rpl *WRPL, slot byte, r *bytes.Reader) {
 	if err != nil {
 		return
 	}
-	if rpl.Players[slot] == nil {
+	if rpl.Parsed.Players[slot] == nil {
 		return
 	}
-	rpl.Players[slot].Title = t
+	rpl.Parsed.Players[slot].Title = t
 }

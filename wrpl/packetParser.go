@@ -55,9 +55,11 @@ type ParsedPacket struct {
 func ParsePacket(rpl *WRPL, pk *WRPLRawPacket) (*ParsedPacket, error) {
 	switch PacketType(pk.PacketType) {
 	case PacketTypeChat:
-		return parsePacketChat(pk)
+		return parsePacketChat(rpl, pk)
 	case PacketTypeMPI:
 		return parsePacketMPI(rpl, pk)
+	case PacketTypeECS:
+		return parsePacketECS(rpl, pk)
 	default:
 		return nil, ErrUnknownPacket
 	}

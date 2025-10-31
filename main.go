@@ -74,6 +74,8 @@ type parsedReplay struct {
 
 	SlotMessages []*wrpl.WRPLRawPacket
 
+	ECSMessages []*wrpl.WRPLRawPacket
+
 	uiPacketInspect *uiPacketInspectData
 
 	PinnedFindings []pinnedFinding
@@ -502,6 +504,37 @@ func addReplayTab(rpl *parsedReplay) {
 			}
 		}
 	}
+	if rpl.ECSMessages == nil {
+		for _, pk := range rpl.Replay.Packets {
+			if pk == nil {
+				continue
+			}
+			if pk.PacketType != byte(wrpl.PacketTypeECS) {
+				continue
+			}
+			if pk.ParseError != nil {
+				continue
+			}
+			if pk.Parsed == nil {
+				continue
+			}
+			pk1, ok := pk.Parsed.Data.(wrpl.ParsedPacketECS)
+			if !ok {
+				continue
+			}
+			for _, msgd := range pk1.Messages {
+				rpl.ECSMessages = append(rpl.ECSMessages, &wrpl.WRPLRawPacket{
+					CurrentTime:   pk.CurrentTime,
+					PacketType:    pk1.Control,
+					PacketPayload: msgd.Data,
+					Parsed: &wrpl.ParsedPacket{
+						Name: "ecs",
+						Data: msgd,
+					},
+				})
+			}
+		}
+	}
 	openReplays = append([]*parsedReplay{rpl}, openReplays...)
 }
 
@@ -621,7 +654,41 @@ func uiShowParsedReplay(rpl *parsedReplay) {
 			uiShowSlotInfo(rpl)
 			imgui.EndTabItem()
 		}
+		if imgui.BeginTabItem("ecs") {
+			uiShowECS(rpl)
+			imgui.EndTabItem()
+		}
 		imgui.EndTabBar()
+	}
+}
+
+func uiShowECS(rpl *parsedReplay) {
+	if rpl.Replay.Parsed == nil {
+		imgui.TextUnformatted("parsed is nil")
+		return
+	}
+	if rpl.Replay.Parsed.ECS == nil {
+		imgui.TextUnformatted("ecs is nil")
+		return
+	}
+	keys := slices.Sorted(maps.Keys(rpl.Replay.Parsed.ECS.TemplateDefs))
+	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
+	if imgui.BeginTableV("ecs templates", 3, tableFlags, imgui.Vec2{}, 0) {
+		imgui.TableSetupColumn("id")
+		imgui.TableSetupColumn("name")
+		imgui.TableSetupColumn("comps")
+		imgui.TableHeadersRow()
+		for _, k := range keys {
+			v := rpl.Replay.Parsed.ECS.TemplateDefs[k]
+			imgui.TableNextRow()
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(strconv.FormatUint(uint64(v.ID), 10))
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(v.Name)
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(fmt.Sprint(v.Components))
+		}
+		imgui.EndTable()
 	}
 }
 
@@ -636,7 +703,7 @@ func uiShowSlotInfo(rpl *parsedReplay) {
 		imgui.TableSetupColumn("id hex")
 		imgui.TableSetupColumn("title")
 		imgui.TableHeadersRow()
-		for i, u := range rpl.Replay.Players {
+		for i, u := range rpl.Replay.Parsed.Players {
 			if u == nil {
 				continue
 			}
@@ -993,7 +1060,7 @@ type uiPacketInspectData struct {
 }
 
 var (
-	uiPacketInspectSubsetNames = []string{"Packet stream", "Failed to parse", "Slot packets"}
+	uiPacketInspectSubsetNames = []string{"Packet stream", "Failed to parse", "Slot packets", "ECS packets"}
 )
 
 func uiShowPacketInspect(rpl *parsedReplay) {
@@ -1096,6 +1163,8 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 			subset = rpl.ParsingFailedPackets
 		case 2:
 			subset = rpl.SlotMessages
+		case 3:
+			subset = rpl.ECSMessages
 		}
 
 		for i, pk := range subset {
@@ -1378,7 +1447,9 @@ func uiShowPacket(pk *wrpl.WRPLRawPacket) {
 		imgui.TableNextColumn()
 
 		if pk.ParseError != nil {
+			imgui.PushTextWrapPos()
 			imgui.TextUnformatted("Parse error: " + pk.ParseError.Error())
+			imgui.PopTextWrapPos()
 		}
 		if pk.Parsed == nil {
 			imgui.TextUnformatted("not parsed")

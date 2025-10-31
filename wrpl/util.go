@@ -22,6 +22,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/maxsupermanhd/wrpl-inspector/danet"
 )
 
 func readVariableLengthSize(r io.Reader) (uint32, error) {
@@ -136,4 +138,29 @@ func writeVariableLengthSize(w io.Writer, size uint32) error {
 	binary.LittleEndian.PutUint32(buf[1:], size)
 	_, err := w.Write(buf[:5])
 	return err
+}
+
+func readEID(r *danet.BitReader) (uint64, error) {
+	var first16 uint16
+	err := binary.Read(r, binary.LittleEndian, &first16)
+	if err != nil {
+		return 0, err
+	}
+	if first16&1 == 1 {
+		return uint64(uint64(first16)>>2 | (uint64((first16&2)>>1) << 22)), nil
+	} else if first16&2 > 0 {
+		gen, err := r.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+		return uint64(uint64(first16)>>2 | (uint64(gen) << 22)), nil
+	} else {
+		var second16 uint16
+		err := binary.Read(r, binary.LittleEndian, &second16)
+		if err != nil {
+			return 0, err
+		}
+		ret := uint64(uint64(second16)<<16 | uint64(first16))
+		return uint64(((ret & 0x00ffffff) >> 2) | ((ret >> 24) << 22)), nil
+	}
 }
