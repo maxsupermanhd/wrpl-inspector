@@ -162,8 +162,7 @@ func parsePacketECS(rpl *WRPL, pk *WRPLRawPacket) (*ParsedPacket, error) {
 		if err != nil {
 			return ret, err
 		}
-		dat.MessageCount++
-		for range dat.MessageCount {
+		for range uint64(dat.MessageCount) + 1 {
 			msg, err := parseECSConstructMessage(rpl, r)
 			if err != nil {
 				return ret, fmt.Errorf("reading ecs construct message: %w", err)
