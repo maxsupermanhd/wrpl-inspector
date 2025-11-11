@@ -132,8 +132,6 @@ func parseSlotMessage(rpl *WRPL, slot byte, msg []byte) {
 		return
 	}
 	switch header[2] {
-	case 0x00:
-		parseSlotMessage_SetTitle(rpl, slot, r)
 	case 0x01:
 		parseSlotMessage_PlayerInit(rpl, slot, r)
 	case 0x02:
@@ -151,7 +149,7 @@ func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
 	if err != nil {
 		return
 	}
-	uName := make([]byte, 67)
+	uName := make([]byte, 32)
 	_, err = r.Read(uName)
 	if err != nil {
 		return
@@ -172,15 +170,4 @@ func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
 		u.Title = title
 	}
 	rpl.Parsed.Players[slot] = u
-}
-
-func parseSlotMessage_SetTitle(rpl *WRPL, slot byte, r *bytes.Reader) {
-	t, err := PacketReadLenString(r)
-	if err != nil {
-		return
-	}
-	if rpl.Parsed.Players[slot] == nil {
-		return
-	}
-	rpl.Parsed.Players[slot].Title = t
 }
