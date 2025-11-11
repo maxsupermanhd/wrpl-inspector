@@ -149,7 +149,7 @@ func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
 	if err != nil {
 		return
 	}
-	uName := make([]byte, 32)
+	uName := make([]byte, 64)
 	_, err = r.Read(uName)
 	if err != nil {
 		return
