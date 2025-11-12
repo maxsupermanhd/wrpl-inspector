@@ -1041,6 +1041,7 @@ func uiShowReplayPacketByteInterpreter(rpl *parsedReplay) {
 func uiShowReplaySummary(rpl *parsedReplay) {
 	imgui.TextUnformatted(rpl.LoadedFrom)
 	uiTextParam("Session:", fmt.Sprintf("%016x", rpl.Replay.Header.SessionID))
+	uiTextParam("Version:", fmt.Sprintf("%d", rpl.Replay.Header.Version))
 	uiTextParam("Level:", string(bytes.Trim(rpl.Replay.Header.Raw_Level[:], "\x00")))
 	uiTextParam("Environment:", string(bytes.Trim(rpl.Replay.Header.Raw_Environment[:], "\x00")))
 	uiTextParam("Visibility:", string(bytes.Trim(rpl.Replay.Header.Raw_Visibility[:], "\x00")))
