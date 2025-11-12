@@ -145,8 +145,12 @@ func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
 	if err != nil {
 		return
 	}
-	_, err = r.Seek(4, io.SeekCurrent)
+	var unk0 uint32
+	err = binary.Read(r, binary.LittleEndian, &unk0)
 	if err != nil {
+		return
+	}
+	if unk0 != 0 {
 		return
 	}
 	uName := make([]byte, 64)
