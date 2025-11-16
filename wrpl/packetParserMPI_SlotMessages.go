@@ -158,7 +158,7 @@ func parseSlotMessage_PlayerInit(rpl *WRPL, slot byte, r *bytes.Reader) {
 	if err != nil {
 		return
 	}
-	u.Name = strings.Trim(string(uName), "\x00")
+	u.Name = strings.ToValidUTF8(strings.Trim(string(uName), "\x00"), "?")
 	_, err = r.Seek(20, io.SeekCurrent)
 	if err != nil {
 		return
