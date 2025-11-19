@@ -180,6 +180,7 @@ func ReadWRPL(r io.ReadSeeker, parseSettings, parsePackets, parseResults bool) (
 		if err != nil {
 			return nil, fmt.Errorf("reading packet stream: %w", err)
 		}
+		ParsePacketStream(ret)
 	}
 
 	if ret.Header.ResultsBlkOffset > 0 && parseResults {
