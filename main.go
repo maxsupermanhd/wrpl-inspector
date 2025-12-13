@@ -1203,9 +1203,10 @@ func uiShowPacketInspect(rpl *parsedReplay) {
 	imgui.SameLine()
 	if imgui.Button("global") {
 		rpl.PinnedFindings = append(rpl.PinnedFindings, pinnedFinding{
-			Packets:   slices.Clone(rpl.Replay.Packets),
-			InitialID: dat.ResultGlobalIDs[dat.ViewPacketID],
-			CurrentID: dat.ResultGlobalIDs[dat.ViewPacketID],
+			Packets:                  slices.Clone(rpl.Replay.Packets),
+			InitialID:                dat.ResultGlobalIDs[dat.ViewPacketID],
+			CurrentID:                dat.ResultGlobalIDs[dat.ViewPacketID],
+			ViewingPacketListingMode: dat.ViewMode,
 		})
 	}
 	imgui.SameLine()
