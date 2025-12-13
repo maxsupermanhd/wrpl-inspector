@@ -27,7 +27,8 @@ func (bs *BitReader) ReadBits(bits int) ([]byte, error) {
 	}
 	bitlen := bits2bytes(bs.BitOffset + bits)
 	if bitlen > len(bs.Data) {
-		return nil, io.EOF
+		ret, _ := bs.ReadBits(len(bs.Data)*8 - bs.BitOffset)
+		return ret, io.EOF
 		// return nil, fmt.Errorf("bitstream bitlen %d >= data len %d: %w", bs.BitOffset+bits, len(bs.Data)*8, io.EOF)
 	}
 
@@ -76,11 +77,8 @@ func (bs *BitReader) ReadByte() (byte, error) {
 
 func (bs *BitReader) Read(dst []byte) (n int, err error) {
 	src, err := bs.ReadBytes(len(dst))
-	if err != nil {
-		return 0, err
-	}
 	n = copy(dst, src)
-	return
+	return len(src), err
 }
 
 func (bs *BitReader) ReadLenStr() (string, error) {
@@ -112,6 +110,18 @@ func (bs *BitReader) ReadCompressed() (uint64, error) {
 
 func (bs *BitReader) AlignToByteBoundary() {
 	bs.BitOffset += 8 - (((bs.BitOffset - 1) & 7) + 1)
+}
+
+func (bs *BitReader) UnreadBits(b int) {
+	bs.BitOffset -= b
+}
+
+func (bs *BitReader) UnreadBytes(b int) {
+	bs.BitOffset -= b * 8
+}
+
+func (bs *BitReader) UnreadByte() {
+	bs.BitOffset -= 8
 }
 
 func bytes2bits(n int) int {
