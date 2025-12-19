@@ -55,7 +55,7 @@ func (p *PacketAwardParser) ParsesMatching() map[byte][][]packet.ParsingConditio
 func (p *PacketAwardParser) Parse(pk *packet.Packet) error {
 	parsed := Award{}
 	var err error
-	r := bytes.NewReader(pk.PacketPayload)
+	r := bytes.NewReader(pk.PacketPayload[4:])
 	parsed.AwardType, err = r.ReadByte()
 	if err != nil {
 		return err

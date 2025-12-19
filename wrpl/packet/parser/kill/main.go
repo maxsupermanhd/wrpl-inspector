@@ -54,7 +54,7 @@ func (p *PacketKillParser) ParsesMatching() map[byte][][]packet.ParsingCondition
 func (p *PacketKillParser) Parse(pk *packet.Packet) error {
 	parsed := KillEntry{}
 	var err error
-	r := bytes.NewReader(pk.PacketPayload)
+	r := bytes.NewReader(pk.PacketPayload[4:])
 	parsed.Control, err = r.ReadByte()
 	if err != nil {
 		return err
