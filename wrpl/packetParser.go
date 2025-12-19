@@ -20,64 +20,25 @@ package wrpl
 
 import (
 	"bytes"
-	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 )
 
-//go:generate stringer --type PacketType
-type PacketType byte
-
-const (
-	PacketTypeEndMarker        PacketType = 0
-	PacketTypeStartMarker      PacketType = 1
-	PacketTypeAircraftSmall    PacketType = 2
-	PacketTypeChat             PacketType = 3
-	PacketTypeMPI              PacketType = 4
-	PacketTypeNextSegment      PacketType = 5
-	PacketTypeECS              PacketType = 6
-	PacketTypeSnapshot         PacketType = 7
-	PacketTypeReplayHeaderInfo PacketType = 8
-)
-
-var (
-	ErrUnknownPacket = errors.New("unknown packet")
-)
-
-type ParsedPacket struct {
-	Name string
-	Data any
-}
-
-func ParsePacket(rpl *WRPL, pk *WRPLRawPacket) (*ParsedPacket, error) {
-	switch PacketType(pk.PacketType) {
-	case PacketTypeChat:
-		return parsePacketChat(rpl, pk)
-	case PacketTypeMPI:
-		return parsePacketMPI(rpl, pk)
-	case PacketTypeECS:
-		return parsePacketECS(rpl, pk)
-	default:
-		return nil, ErrUnknownPacket
-	}
-}
-
 func ReadToHexStr(r *bytes.Reader, l int) (string, error) {
-	ret := ""
+	ret := strings.Builder{}
 	for range l {
 		b, err := r.ReadByte()
 		if err != nil {
 			return "", err
 		}
-		ret += fmt.Sprintf("%02x", b)
+		ret.WriteString(fmt.Sprintf("%02x", b))
 	}
-	return ret, nil
+	return ret.String(), nil
 }
 
-func readToHexStrFull(r *bytes.Reader) (string, error) {
+func ReadToHexStrFull(r *bytes.Reader) (string, error) {
 	retBytes, err := io.ReadAll(r)
 	if err != nil {
 		return "", err
@@ -85,17 +46,7 @@ func readToHexStrFull(r *bytes.Reader) (string, error) {
 	return hex.EncodeToString(retBytes), nil
 }
 
-func packetAutoReadName[T any](r *bytes.Reader, order binary.ByteOrder, m map[string]any, name string) error {
-	var v T
-	err := binary.Read(r, order, &v)
-	if name == "" {
-		name = fmt.Sprintf("field%02d", len(m))
-	}
-	m[name] = v
-	return err
-}
-
-func PacketReadLenString(r *bytes.Reader) (string, error) {
+func ReadLenString(r *bytes.Reader) (string, error) {
 	l, err := r.ReadByte()
 	if err != nil {
 		return "", err
@@ -105,7 +56,7 @@ func PacketReadLenString(r *bytes.Reader) (string, error) {
 	return string(ret), err
 }
 
-func bytesToChar(s []byte) (ret string) {
+func BytesToChar(s []byte) (ret string) {
 	sb := strings.Builder{}
 	for _, b := range s {
 		if b < 32 || b > 126 {

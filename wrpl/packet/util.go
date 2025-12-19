@@ -16,17 +16,16 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package wrpl
+package packet
 
 import (
 	"encoding/binary"
 	"fmt"
 	"io"
-
-	"github.com/maxsupermanhd/wrpl-inspector/danet"
+	"wrpl/danet"
 )
 
-func readVariableLengthSize(r io.Reader) (uint32, error) {
+func ReadVariableLengthSize(r io.Reader) (uint32, error) {
 	var b [1]byte
 
 	// read first byte
@@ -93,7 +92,7 @@ func readVariableLengthSize(r io.Reader) (uint32, error) {
 	return uint32(payload), nil
 }
 
-func writeVariableLengthSize(w io.Writer, size uint32) error {
+func WriteVariableLengthSize(w io.Writer, size uint32) error {
 	var buf [5]byte
 
 	// 1-byte: 10xxxxxx -> values 0..0x3F (6 bits)
@@ -140,7 +139,7 @@ func writeVariableLengthSize(w io.Writer, size uint32) error {
 	return err
 }
 
-func readEID(r *danet.BitReader) (uint64, error) {
+func ReadEID(r *danet.BitReader) (uint64, error) {
 	var first16 uint16
 	err := binary.Read(r, binary.LittleEndian, &first16)
 	if err != nil {

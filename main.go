@@ -41,7 +41,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
+	"wrpl"
 
 	"github.com/AllenDang/cimgui-go/backend"
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"

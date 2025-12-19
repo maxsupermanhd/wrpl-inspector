@@ -1,11 +1,30 @@
-package wrpl
+/*
+	wrpl: War Thunder replay parsing library (golang)
+	Copyright (C) 2025 flexcoral
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Affero General Public License as published
+	by the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Affero General Public License for more details.
+
+	You should have received a copy of the GNU Affero General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+package packetecs
 
 import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"wrpl/danet"
+	"wrpl/packet"
 
-	"github.com/maxsupermanhd/wrpl-inspector/danet"
 	"github.com/pierrec/lz4/v4"
 )
 
@@ -27,6 +46,7 @@ type ECSMessage struct {
 }
 
 type ParsedPacketECS struct {
+	PacketSeq        uint64
 	Control          byte
 	WasCompressed    bool
 	DecompressFailed bool
@@ -39,11 +59,6 @@ type ParsedPacketECS struct {
 type ECSTemplateID uint16
 type ECSComponentID uint16
 
-type ECS struct {
-	TemplateDefs  map[ECSTemplateID]*ECSTemplate
-	ComponentDefs map[ECSComponentID]*ECSComponent
-}
-
 type ECSTemplate struct {
 	ID         ECSTemplateID
 	Name       string
@@ -55,12 +70,28 @@ type ECSComponent struct {
 	Type uint32
 }
 
-func parseECSTemplate(ecs *ECS, r *danet.BitReader) (*ECSTemplate, error) {
+type PacketECSParser struct {
+	TemplateDefs  map[ECSTemplateID]*ECSTemplate
+	ComponentDefs map[ECSComponentID]*ECSComponent
+	Messages      []ParsedPacketECS
+}
+
+func (p *PacketECSParser) Name() string {
+	return "ecs"
+}
+
+func (p *PacketECSParser) ParsesMatching() map[byte][][]packet.ParsingCondition {
+	return map[byte][][]packet.ParsingCondition{
+		6: nil,
+	}
+}
+
+func (p *PacketECSParser) parseECSTemplate(r *danet.BitReader) (*ECSTemplate, error) {
 	templID, err := r.ReadCompressed()
 	if err != nil {
 		return nil, fmt.Errorf("reading template id: %w", err)
 	}
-	templDef, ok := ecs.TemplateDefs[ECSTemplateID(templID)]
+	templDef, ok := p.TemplateDefs[ECSTemplateID(templID)]
 	if ok {
 		return templDef, nil
 	}
@@ -83,7 +114,7 @@ func parseECSTemplate(ecs *ECS, r *danet.BitReader) (*ECSTemplate, error) {
 			return nil, fmt.Errorf("reading component id: %w", err)
 		}
 		compID := ECSComponentID(compIDl)
-		_, ok := ecs.ComponentDefs[compID]
+		_, ok := p.ComponentDefs[compID]
 		if !ok {
 			comp := &ECSComponent{}
 			err = binary.Read(r, binary.LittleEndian, &comp.Name)
@@ -94,17 +125,17 @@ func parseECSTemplate(ecs *ECS, r *danet.BitReader) (*ECSTemplate, error) {
 			if err != nil {
 				return nil, fmt.Errorf("reading component def type hash: %w", err)
 			}
-			ecs.ComponentDefs[compID] = comp
+			p.ComponentDefs[compID] = comp
 		}
 		templDef.Components = append(templDef.Components, compID)
 	}
-	ecs.TemplateDefs[ECSTemplateID(templID)] = templDef
+	p.TemplateDefs[ECSTemplateID(templID)] = templDef
 	return templDef, nil
 }
 
-func parseECSConstructMessage(rpl *WRPL, r *danet.BitReader) (ret *ECSMessage, err error) {
+func (p *PacketECSParser) parseECSConstructMessage(r *danet.BitReader) (ret *ECSMessage, err error) {
 	ret = &ECSMessage{}
-	ret.EID, err = readEID(r)
+	ret.EID, err = packet.ReadEID(r)
 	if err != nil {
 		return ret, fmt.Errorf("reading eid: %w", err)
 	}
@@ -118,7 +149,7 @@ func parseECSConstructMessage(rpl *WRPL, r *danet.BitReader) (ret *ECSMessage, e
 		return ret, fmt.Errorf("reading block (size %d): %w", blockSize, err)
 	}
 	br := danet.NewBitReader(blockData)
-	templ, err := parseECSTemplate(rpl.Parsed.ECS, br)
+	templ, err := p.parseECSTemplate(br)
 	if err != nil {
 		return ret, fmt.Errorf("reading template: %w", err)
 	}
@@ -127,19 +158,13 @@ func parseECSConstructMessage(rpl *WRPL, r *danet.BitReader) (ret *ECSMessage, e
 	return
 }
 
-func parsePacketECS(rpl *WRPL, pk *WRPLRawPacket) (*ParsedPacket, error) {
+func (p *PacketECSParser) Parse(pk *packet.Packet) error {
 	dat := ParsedPacketECS{}
-	ret := &ParsedPacket{
-		Name: "ecs",
-	}
-	defer func() {
-		ret.Data = dat
-	}()
 	var err error
 	r := danet.NewBitReader(pk.PacketPayload)
 	dat.Control, err = r.ReadByte()
 	if err != nil {
-		return ret, fmt.Errorf("reading ecs control byte: %w", err)
+		return fmt.Errorf("reading ecs control byte: %w", err)
 	}
 
 	if dat.Control == 0x25 {
@@ -151,7 +176,7 @@ func parsePacketECS(rpl *WRPL, pk *WRPLRawPacket) (*ParsedPacket, error) {
 			dat.Messages = []*ECSMessage{{
 				Data: pk.PacketPayload[1:],
 			}}
-			return ret, fmt.Errorf("reading compressed ecs blob: %w", err)
+			return fmt.Errorf("reading compressed ecs blob: %w", err)
 		}
 		r = danet.NewBitReader(decomp[:dat.DecompressSize])
 		dat.Control = 0x24
@@ -160,65 +185,15 @@ func parsePacketECS(rpl *WRPL, pk *WRPLRawPacket) (*ParsedPacket, error) {
 	if dat.Control == 0x24 {
 		dat.MessageCount, err = r.ReadByte()
 		if err != nil {
-			return ret, err
+			return err
 		}
 		for range uint64(dat.MessageCount) + 1 {
-			msg, err := parseECSConstructMessage(rpl, r)
+			msg, err := p.parseECSConstructMessage(r)
 			if err != nil {
-				return ret, fmt.Errorf("reading ecs construct message: %w", err)
+				return fmt.Errorf("reading ecs construct message: %w", err)
 			}
 			dat.Messages = append(dat.Messages, msg)
 		}
-		return ret, nil
 	}
-
-	return nil, nil
+	return nil
 }
-
-type ECSMessageEntityInit struct {
-	ModelName string
-	Slot      string
-	Rem       []byte
-}
-
-// func parsePacketECS_construction(rpl *WRPL, pk *ECSMessage) (ret *ParsedPacket, err error) {
-// 	ret = &ParsedPacket{
-// 		Name: "entity init",
-// 		Data: nil,
-// 	}
-// 	dat := &ECSMessageEntityInit{}
-// 	defer func() {
-// 		ret.Data = dat
-// 	}()
-
-// 	r := danet.NewBitReader(pk.Data.PacketPayload)
-
-// 	r.IgnoreBytes(2) // 0e..
-
-// 	_, err = r.ReadCompressed()
-// 	if err != nil {
-// 		return ret, err
-// 	}
-// 	_, err = r.ReadCompressed()
-// 	if err != nil {
-// 		return ret, err
-// 	}
-
-// 	// @0x45 t
-// 	// @0x46 t
-// 	// ^0e.{12}3770.{128}4d
-// 	// ^0e.{14}3770.{128}4d
-
-// 	r.IgnoreBytes(63)
-// 	dat.ModelName, err = r.ReadLenStr()
-// 	if err != nil {
-// 		return ret, err
-// 	}
-// 	dat.Slot, err = r.ReadLenStr()
-// 	if err != nil {
-// 		return ret, err
-// 	}
-
-// 	dat.Rem, err = io.ReadAll(r)
-// 	return
-// }

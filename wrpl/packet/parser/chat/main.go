@@ -16,11 +16,16 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package wrpl
+package packetchat
 
-import "bytes"
+import (
+	"bytes"
+	"wrpl"
+	"wrpl/packet"
+)
 
-type ParsedPacketChat struct {
+type ParsedPacketChatMessage struct {
+	PacketSeq   uint64
 	CurrentTime uint32
 	Sender      string
 	Content     string
@@ -28,31 +33,43 @@ type ParsedPacketChat struct {
 	IsEnemy     byte
 }
 
-func parsePacketChat(rpl *WRPL, pk *WRPLRawPacket) (ret *ParsedPacket, err error) {
+type PacketChatParser struct {
+	Messages []ParsedPacketChatMessage
+}
+
+func (p *PacketChatParser) Name() string {
+	return "chat"
+}
+
+func (p *PacketChatParser) ParsesMatching() map[byte][][]packet.ParsingCondition {
+	return map[byte][][]packet.ParsingCondition{
+		3: nil,
+	}
+}
+
+func (p *PacketChatParser) Parse(pk *packet.Packet) error {
 	r := bytes.NewReader(pk.PacketPayload)
-	parsed := ParsedPacketChat{}
-	ret = &ParsedPacket{
-		Name: "chat",
-		Data: parsed,
+	parsed := ParsedPacketChatMessage{
+		PacketSeq:   pk.Seq,
+		CurrentTime: pk.CurrentTime,
 	}
-	parsed.CurrentTime = pk.CurrentTime
-	parsed.Sender, err = PacketReadLenString(r)
+	var err error
+	parsed.Sender, err = wrpl.ReadLenString(r)
 	if err != nil {
-		return
+		return err
 	}
-	parsed.Content, err = PacketReadLenString(r)
+	parsed.Content, err = wrpl.ReadLenString(r)
 	if err != nil {
-		return
+		return err
 	}
 	parsed.ChannelType, err = r.ReadByte()
 	if err != nil {
-		return
+		return err
 	}
 	parsed.IsEnemy, err = r.ReadByte()
 	if err != nil {
-		return
+		return err
 	}
-	ret.Data = parsed
-	rpl.Parsed.Chat = append(rpl.Parsed.Chat, &parsed)
-	return
+	p.Messages = append(p.Messages, parsed)
+	return nil
 }
