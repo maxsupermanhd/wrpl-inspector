@@ -21,6 +21,7 @@ package packetslot
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"strings"
 	"wrpl"
@@ -43,16 +44,17 @@ type ParsedPacketSlotMessage struct {
 	Unk1           string
 	Unk2           string
 	Messages       []SlotPrefixedMessage
+	MessageErrors  []error
 }
 
 type SlotPrefixedMessage struct {
 	Slot    byte
 	Message []byte
+	packet.ParserResult
 }
 
 type PacketSlotParser struct {
-	Messages []SlotPrefixedMessage
-	Players  [256]*Player
+	Players [256]*Player
 }
 
 func (p *PacketSlotParser) Name() string {
@@ -77,41 +79,41 @@ func (p *PacketSlotParser) ParsesMatching() map[byte][][]packet.ParsingCondition
 	}
 }
 
-func (p *PacketSlotParser) Parse(pk *packet.Packet) error {
-	parsed := ParsedPacketSlotMessage{}
+func (p *PacketSlotParser) Parse(pk *packet.Packet) (any, error) {
+	parsed := &ParsedPacketSlotMessage{}
 	r := bytes.NewReader(pk.PacketPayload[4:])
 	var err error
 	parsed.DataCompressed, err = r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var r2 *bytes.Reader
 	if parsed.DataCompressed > 0 {
 		parsed.Unk0, err = wrpl.ReadToHexStr(r, 1)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		parsed.Control, err = r.ReadByte()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		parsed.Unk1, err = wrpl.ReadToHexStr(r, 2)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if parsed.Control&0xF0 > 0 {
 			parsed.Unk2, err = wrpl.ReadToHexStr(r, 1) // perhaps this 0x04 is blk type 4, slim zstd
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 		dc, err2 := zstd.NewReader(r) // 28b52ffd
 		if err2 != nil {
-			return err
+			return nil, err
 		}
 		b, err2 := io.ReadAll(dc)
 		if err2 != nil {
-			return err
+			return nil, err
 		}
 		r2 = bytes.NewReader(b)
 	} else {
@@ -120,93 +122,103 @@ func (p *PacketSlotParser) Parse(pk *packet.Packet) error {
 	messageCount := uint16(0)
 	err = binary.Read(r2, binary.LittleEndian, &messageCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	for range messageCount {
+	for messageNum := range messageCount {
 		messageLen := uint16(0)
 		err = binary.Read(r2, binary.LittleEndian, &messageLen)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		messageSlot, err2 := r2.ReadByte()
 		if err2 != nil {
-			return err
+			return nil, err
 		}
 		messageBuf := make([]byte, messageLen-1)
 		_, err = r2.Read(messageBuf)
 		if err != nil {
-			return err
+			return nil, err
+		}
+		data, err := p.ParseSlotMessage(messageSlot, messageBuf)
+		if err != nil {
+			err = fmt.Errorf("parsing slot message %d: %w", messageNum, err)
 		}
 		parsed.Messages = append(parsed.Messages, SlotPrefixedMessage{
 			Slot:    messageSlot,
 			Message: messageBuf,
+			ParserResult: packet.ParserResult{
+				Data: data,
+				Err:  err,
+			},
 		})
-		p.ParseSlotMessage(messageSlot, messageBuf)
 	}
-	return err
+	return parsed, err
 }
 
-func (p *PacketSlotParser) ParseSlotMessage(slot byte, msg []byte) {
+func (p *PacketSlotParser) ParseSlotMessage(slot byte, msg []byte) (any, error) {
 	if len(msg) < 5 {
-		return
+		return nil, nil
 	}
 	r := bytes.NewReader(msg)
 	header := make([]byte, 5)
 	_, err := r.Read(header)
 	if err != nil {
-		return
+		return nil, err
 	}
 	if header[0] != 0x70 || header[4] != 0x60 {
-		return
+		return nil, nil
 	}
 	if header[3] != 0x08 && header[3] != 0x30 {
-		return
+		return nil, nil
 	}
 	switch header[2] {
 	case 0x01:
-		p.ParseSlotMessage_PlayerInit(slot, r)
+		return p.ParseSlotMessage_PlayerInit(slot, r)
 	case 0x02:
-		p.ParseSlotMessage_PlayerInit(slot, r)
+		return p.ParseSlotMessage_PlayerInit(slot, r)
+	default:
+		return nil, nil
 	}
 }
 
-func (p *PacketSlotParser) ParseSlotMessage_PlayerInit(slot byte, r *bytes.Reader) {
+func (p *PacketSlotParser) ParseSlotMessage_PlayerInit(slot byte, r *bytes.Reader) (*Player, error) {
 	u := &Player{}
 	err := binary.Read(r, binary.LittleEndian, &u.UserID)
 	if err != nil {
-		return
+		return nil, err
 	}
 	var unk0 uint32
 	err = binary.Read(r, binary.LittleEndian, &unk0)
 	if err != nil {
-		return
+		return nil, err
 	}
 	if unk0 != 0 {
-		return
+		return nil, nil
 	}
 	uName := make([]byte, 64)
 	_, err = r.Read(uName)
 	if err != nil {
-		return
+		return nil, err
 	}
 	u.Name = strings.ToValidUTF8(strings.Trim(string(uName), "\x00"), "?")
 	_, err = r.Seek(20, io.SeekCurrent)
 	if err != nil {
-		return
+		return nil, err
 	}
 	clanTag, err := wrpl.ReadLenString(r)
 	if err != nil {
-		return
+		return nil, err
 	}
 	if len(clanTag) > 0 {
 		u.ClanTag = clanTag
 	}
 	title, err := wrpl.ReadLenString(r)
 	if err != nil {
-		return
+		return nil, err
 	}
 	if len(title) > 0 {
 		u.Title = title
 	}
 	p.Players[slot] = u
+	return u, nil
 }

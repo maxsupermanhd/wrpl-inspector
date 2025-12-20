@@ -30,9 +30,7 @@ type EntityMovement struct {
 	X, Y, Z float64
 }
 
-type PacketMovementParser struct {
-	Samples []EntityMovement
-}
+type PacketMovementParser struct{}
 
 func (p *PacketMovementParser) Name() string {
 	return "movement"
@@ -52,20 +50,19 @@ func (p *PacketMovementParser) ParsesMatching() map[byte][][]packet.ParsingCondi
 	}
 }
 
-func (p *PacketMovementParser) Parse(pk *packet.Packet) error {
+func (p *PacketMovementParser) Parse(pk *packet.Packet) (any, error) {
 	if len(pk.PacketPayload) < 40 {
-		return nil
+		return nil, nil
 	}
-	parsed := EntityMovement{}
+	parsed := &EntityMovement{}
 	var err error
 	parsed.EID, err = danet.NewBitReader(pk.PacketPayload[2:]).ReadCompressed()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	binary.Decode(pk.PacketPayload[14:], binary.LittleEndian, &parsed.X)
 	binary.Decode(pk.PacketPayload[22:], binary.LittleEndian, &parsed.Y)
 	binary.Decode(pk.PacketPayload[30:], binary.LittleEndian, &parsed.Z)
 	parsed.Time = pk.CurrentTime
-	p.Samples = append(p.Samples, parsed)
-	return nil
+	return parsed, nil
 }

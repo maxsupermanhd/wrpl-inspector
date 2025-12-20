@@ -36,26 +36,100 @@ func NewParsingCondition(Pos int, Val byte) ParsingCondition {
 
 type PacketParser interface {
 	Name() string
-	Parse(pk *Packet) error
+	Parse(pk *Packet) (any, error)
 	// map[packetType][]matchingConditions
 	// if map value is nil that means capture all packets
 	ParsesMatching() map[byte][][]ParsingCondition
 }
 
-func ParsePackets(r PacketReader, parsers []PacketParser) ([]error, error) {
-	type parserWithChecks struct {
-		parser PacketParser
-		checks [][]ParsingCondition
+type parserWithChecks struct {
+	parser PacketParser
+	checks [][]ParsingCondition
+}
+
+type ParserMatcher struct {
+	parsers []PacketParser
+	bytype  [256][]parserWithChecks
+}
+
+func NewParserMatcher(parsers []PacketParser) *ParserMatcher {
+	matcher := &ParserMatcher{
+		parsers: parsers,
 	}
-	bytype := make([][]parserWithChecks, 256)
 	for _, parser := range parsers {
 		for t, c := range parser.ParsesMatching() {
-			bytype[t] = append(bytype[t], parserWithChecks{
+			matcher.bytype[t] = append(matcher.bytype[t], parserWithChecks{
 				parser: parser,
 				checks: c,
 			})
 		}
 	}
+	return matcher
+}
+
+type ParserResult struct {
+	Data any
+	Err  error
+}
+
+func (matcher *ParserMatcher) Match(pk *Packet) []ParserResult {
+	ret := []ParserResult{}
+	for _, p := range matcher.bytype[pk.PacketType] {
+		doesMatch := p.checks == nil
+		for _, check := range p.checks {
+			hasFailed := false
+			for _, cond := range check {
+				if cond.Pos >= len(pk.PacketPayload) || pk.PacketPayload[cond.Pos] != cond.Val {
+					hasFailed = true
+					break
+				}
+			}
+			if !hasFailed {
+				doesMatch = true
+			}
+		}
+		if doesMatch {
+			data, err := p.parser.Parse(pk)
+			if err != nil {
+				err = fmt.Errorf("parsing packet %d with matched parser %q: %w", pk.Seq, p.parser.Name(), err)
+			}
+			ret = append(ret, ParserResult{
+				Data: data,
+				Err:  err,
+			})
+		}
+	}
+	return ret
+}
+
+func (matcher *ParserMatcher) MatchIgnoreData(pk *Packet) []error {
+	ret := []error{}
+	for _, p := range matcher.bytype[pk.PacketType] {
+		doesMatch := p.checks == nil
+		for _, check := range p.checks {
+			hasFailed := false
+			for _, cond := range check {
+				if cond.Pos >= len(pk.PacketPayload) || pk.PacketPayload[cond.Pos] != cond.Val {
+					hasFailed = true
+					break
+				}
+			}
+			if !hasFailed {
+				doesMatch = true
+			}
+		}
+		if doesMatch {
+			_, err := p.parser.Parse(pk)
+			if err != nil {
+				ret = append(ret, fmt.Errorf("parsing packet %d with matched parser %q: %w", pk.Seq, p.parser.Name(), err))
+			}
+		}
+	}
+	return ret
+}
+
+func ParsePacketsStreamed(r PacketReader, parsers []PacketParser) ([]error, error) {
+	matcher := NewParserMatcher(parsers)
 	pk := &Packet{}
 	parserErrors := []error{}
 	for {
@@ -66,27 +140,33 @@ func ParsePackets(r PacketReader, parsers []PacketParser) ([]error, error) {
 		if isEOF {
 			return parserErrors, nil
 		}
-		for _, p := range bytype[pk.PacketType] {
-			doesMatch := p.checks == nil
-			for _, check := range p.checks {
-				hasFailed := false
-				for _, cond := range check {
-					if cond.Pos >= len(pk.PacketPayload) || pk.PacketPayload[cond.Pos] != cond.Val {
-						hasFailed = true
-						break
-					}
-				}
-				if !hasFailed {
-					doesMatch = true
-				}
-			}
-			if doesMatch {
-				err := p.parser.Parse(pk)
-				if err != nil {
-					parserErrors = append(parserErrors, fmt.Errorf("parsing packet %d: %w", pk.Seq, err))
-				}
-			}
+		parserErrors = append(parserErrors, matcher.MatchIgnoreData(pk)...)
+		pk.Seq++
+	}
+}
+
+type ParsedPacket struct {
+	Packet
+	ParsersResults []ParserResult
+}
+
+func ParsePackets(r PacketReader, parsers []PacketParser) ([]ParsedPacket, error) {
+	matcher := NewParserMatcher(parsers)
+	ret := []ParsedPacket{}
+	for {
+		pk := ParsedPacket{
+			Packet:         Packet{},
+			ParsersResults: []ParserResult{},
 		}
+		isEOF, err := r.ReadPacket(&pk.Packet)
+		if err != nil {
+			return ret, fmt.Errorf("reading packet %d: %w", pk.Seq, err)
+		}
+		if isEOF {
+			return ret, nil
+		}
+		pk.ParsersResults = matcher.Match(&pk.Packet)
+		ret = append(ret, pk)
 		pk.Seq++
 	}
 }

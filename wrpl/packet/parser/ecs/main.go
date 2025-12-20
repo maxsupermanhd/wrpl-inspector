@@ -86,7 +86,7 @@ func (p *PacketECSParser) ParsesMatching() map[byte][][]packet.ParsingCondition 
 	}
 }
 
-func (p *PacketECSParser) parseECSTemplate(r *danet.BitReader) (*ECSTemplate, error) {
+func (p *PacketECSParser) ParseECSTemplate(r *danet.BitReader) (*ECSTemplate, error) {
 	templID, err := r.ReadCompressed()
 	if err != nil {
 		return nil, fmt.Errorf("reading template id: %w", err)
@@ -133,7 +133,7 @@ func (p *PacketECSParser) parseECSTemplate(r *danet.BitReader) (*ECSTemplate, er
 	return templDef, nil
 }
 
-func (p *PacketECSParser) parseECSConstructMessage(r *danet.BitReader) (ret *ECSMessage, err error) {
+func (p *PacketECSParser) ParseECSConstructMessage(r *danet.BitReader) (ret *ECSMessage, err error) {
 	ret = &ECSMessage{}
 	ret.EID, err = packet.ReadEID(r)
 	if err != nil {
@@ -149,7 +149,7 @@ func (p *PacketECSParser) parseECSConstructMessage(r *danet.BitReader) (ret *ECS
 		return ret, fmt.Errorf("reading block (size %d): %w", blockSize, err)
 	}
 	br := danet.NewBitReader(blockData)
-	templ, err := p.parseECSTemplate(br)
+	templ, err := p.ParseECSTemplate(br)
 	if err != nil {
 		return ret, fmt.Errorf("reading template: %w", err)
 	}
@@ -158,13 +158,13 @@ func (p *PacketECSParser) parseECSConstructMessage(r *danet.BitReader) (ret *ECS
 	return
 }
 
-func (p *PacketECSParser) Parse(pk *packet.Packet) error {
-	dat := ParsedPacketECS{}
+func (p *PacketECSParser) Parse(pk *packet.Packet) (any, error) {
+	dat := &ParsedPacketECS{}
 	var err error
 	r := danet.NewBitReader(pk.PacketPayload)
 	dat.Control, err = r.ReadByte()
 	if err != nil {
-		return fmt.Errorf("reading ecs control byte: %w", err)
+		return nil, fmt.Errorf("reading ecs control byte: %w", err)
 	}
 
 	if dat.Control == 0x25 {
@@ -176,7 +176,7 @@ func (p *PacketECSParser) Parse(pk *packet.Packet) error {
 			dat.Messages = []*ECSMessage{{
 				Data: pk.PacketPayload[1:],
 			}}
-			return fmt.Errorf("reading compressed ecs blob: %w", err)
+			return nil, fmt.Errorf("reading compressed ecs blob: %w", err)
 		}
 		r = danet.NewBitReader(decomp[:dat.DecompressSize])
 		dat.Control = 0x24
@@ -185,15 +185,15 @@ func (p *PacketECSParser) Parse(pk *packet.Packet) error {
 	if dat.Control == 0x24 {
 		dat.MessageCount, err = r.ReadByte()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for range uint64(dat.MessageCount) + 1 {
-			msg, err := p.parseECSConstructMessage(r)
+			msg, err := p.ParseECSConstructMessage(r)
 			if err != nil {
-				return fmt.Errorf("reading ecs construct message: %w", err)
+				return nil, fmt.Errorf("reading ecs construct message: %w", err)
 			}
 			dat.Messages = append(dat.Messages, msg)
 		}
 	}
-	return nil
+	return dat, nil
 }

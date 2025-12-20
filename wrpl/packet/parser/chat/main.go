@@ -47,7 +47,7 @@ func (p *PacketChatParser) ParsesMatching() map[byte][][]packet.ParsingCondition
 	}
 }
 
-func (p *PacketChatParser) Parse(pk *packet.Packet) error {
+func (p *PacketChatParser) Parse(pk *packet.Packet) (any, error) {
 	r := bytes.NewReader(pk.PacketPayload)
 	parsed := ParsedPacketChatMessage{
 		PacketSeq:   pk.Seq,
@@ -56,20 +56,20 @@ func (p *PacketChatParser) Parse(pk *packet.Packet) error {
 	var err error
 	parsed.Sender, err = wrpl.ReadLenString(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.Content, err = wrpl.ReadLenString(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.ChannelType, err = r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.IsEnemy, err = r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p.Messages = append(p.Messages, parsed)
-	return nil
+	return &parsed, nil
 }

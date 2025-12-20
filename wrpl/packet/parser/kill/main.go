@@ -32,9 +32,7 @@ type KillEntry struct {
 	Rem           string
 }
 
-type PacketKillParser struct {
-	Kills []KillEntry
-}
+type PacketKillParser struct{}
 
 func (p *PacketKillParser) Name() string {
 	return "kill"
@@ -51,32 +49,34 @@ func (p *PacketKillParser) ParsesMatching() map[byte][][]packet.ParsingCondition
 	}
 }
 
-func (p *PacketKillParser) Parse(pk *packet.Packet) error {
-	parsed := KillEntry{}
+func (p *PacketKillParser) Parse(pk *packet.Packet) (any, error) {
+	parsed := &KillEntry{}
 	var err error
 	r := bytes.NewReader(pk.PacketPayload[4:])
 	parsed.Control, err = r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.DamageType = parsed.Control & 0xF0
 	/* parsed.Always0x00FE3F */ _, err = wrpl.ReadToHexStr(r, 3)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.KillerID, err = r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	/* parsed.Always0x000000 */ _, err = wrpl.ReadToHexStr(r, 3)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.KillerVehicle, err = wrpl.ReadLenString(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.Rem, err = wrpl.ReadToHexStrFull(r)
-	p.Kills = append(p.Kills, parsed)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return parsed, nil
 }

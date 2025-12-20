@@ -20,8 +20,7 @@ package packetstub
 
 import "wrpl/packet"
 
-type PacketStubParser struct {
-}
+type PacketStubParser struct{}
 
 func (p *PacketStubParser) Name() string {
 	return "stub"
@@ -33,6 +32,6 @@ func (p *PacketStubParser) ParsesMatching() map[byte][][]packet.ParsingCondition
 	}
 }
 
-func (p *PacketStubParser) Parse(pk *packet.Packet) error {
-	return nil
+func (p *PacketStubParser) Parse(pk *packet.Packet) (any, error) {
+	return nil, nil
 }

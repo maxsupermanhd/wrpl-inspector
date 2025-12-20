@@ -52,34 +52,34 @@ func (p *PacketAwardParser) ParsesMatching() map[byte][][]packet.ParsingConditio
 	}
 }
 
-func (p *PacketAwardParser) Parse(pk *packet.Packet) error {
+func (p *PacketAwardParser) Parse(pk *packet.Packet) (any, error) {
 	parsed := Award{}
 	var err error
 	r := bytes.NewReader(pk.PacketPayload[4:])
 	parsed.AwardType, err = r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.Always0x003E, err = wrpl.ReadToHexStr(r, 2)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.Player, err = r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.Always0x000000, err = wrpl.ReadToHexStr(r, 3)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.AwardName, err = wrpl.ReadLenString(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsed.Rem, err = wrpl.ReadToHexStrFull(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p.Awards = append(p.Awards, parsed)
-	return nil
+	return &parsed, nil
 }
