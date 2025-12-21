@@ -68,8 +68,9 @@ func NewParserMatcher(parsers []PacketParser) *ParserMatcher {
 }
 
 type ParserResult struct {
-	Data any
-	Err  error
+	Parser string
+	Data   any
+	Err    error
 }
 
 func (matcher *ParserMatcher) Match(pk *Packet) []ParserResult {
@@ -94,8 +95,9 @@ func (matcher *ParserMatcher) Match(pk *Packet) []ParserResult {
 				err = fmt.Errorf("parsing packet %d with matched parser %q: %w", pk.Seq, p.parser.Name(), err)
 			}
 			ret = append(ret, ParserResult{
-				Data: data,
-				Err:  err,
+				Parser: p.parser.Name(),
+				Data:   data,
+				Err:    err,
 			})
 		}
 	}
