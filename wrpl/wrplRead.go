@@ -22,8 +22,11 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 )
 
 // type Player struct {
@@ -76,53 +79,59 @@ func (rpl *ReplayReader) Close() error {
 // 	return ReadPartedWRPL(parts)
 // }
 
-// func ReadPartedWRPL(replayBytes [][]byte) (ret *WRPL, err error) {
-// 	if len(replayBytes) == 0 {
-// 		return nil, nil
-// 	}
-// 	parts := map[int]*WRPL{}
-// 	var sessionID uint64
-// 	for i, r := range replayBytes {
-// 		rpl, err := ReadWRPL(bytes.NewReader(r), true, true, true)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("parsing replay part file %d: %w", i, err)
-// 		}
-// 		if i == 0 {
-// 			sessionID = rpl.Header.SessionID
-// 		} else {
-// 			if sessionID != rpl.Header.SessionID {
-// 				return nil, fmt.Errorf("multiple sessions %016x and %016x at file %d", sessionID, rpl.Header.SessionID, i)
-// 			}
-// 		}
-// 		if rpl.Header.IsServer() {
-// 			parts[int(rpl.Header.ReplayPartNumber)] = rpl
-// 		}
-// 	}
-// 	if len(parts) == 0 {
-// 		return nil, errors.New("no server-side replays found in the set")
-// 	}
-// 	keys := slices.Collect(maps.Keys(parts))
-// 	slices.Sort(keys)
-// 	if !slices.Contains(keys, 0) {
-// 		return nil, errors.New("no replay part 0 found")
-// 	}
-// 	prevState := -1
-// 	// 0  1  3  5  7  9...
-// 	for _, v := range keys {
-// 		if v%2 == 1 {
-// 			if prevState+2 != v {
-// 				return nil, fmt.Errorf("found orderd part %d but previous was %d", v, prevState)
-// 			} else {
-// 				prevState = v
-// 			}
-// 		}
-// 	}
-// 	ret = &WRPL{
-// 		Header:   parts[0].Header,
-// 		Settings: parts[0].Settings,
-// 	}
-// 	return
-// }
+func OpenPartedReplay(replayBytes [][]byte) (ret *ReplayReader, err error) {
+	if len(replayBytes) == 0 {
+		return nil, nil
+	}
+	// TODO: actually implement packet stream merging
+	// (basically do some kind of io.MultiReader but with close method that is called when readers eof/error)
+	return nil, errors.ErrUnsupported
+	parts := map[int]*ReplayReader{}
+	var sessionID uint64
+	for i, b := range replayBytes {
+		rpl, err := OpenReplay(bytes.NewReader(b), true, true, true)
+		if err != nil {
+			return nil, fmt.Errorf("parsing replay part file %d: %w", i, err)
+		}
+		if i == 0 {
+			sessionID = rpl.Header.SessionID
+		} else {
+			if sessionID != rpl.Header.SessionID {
+				return nil, fmt.Errorf("multiple sessions %016x and %016x at file %d", sessionID, rpl.Header.SessionID, i)
+			}
+		}
+		if rpl.Header.IsServer() {
+			parts[int(rpl.Header.ReplayPartNumber)] = rpl
+		} else {
+			rpl.Close()
+		}
+	}
+	if len(parts) == 0 {
+		return nil, errors.New("no server-side replays found in the set")
+	}
+	keys := slices.Collect(maps.Keys(parts))
+	slices.Sort(keys)
+	if !slices.Contains(keys, 0) {
+		return nil, errors.New("no replay part 0 found")
+	}
+	prevState := -1
+	// 0  1  3  5  7  9...
+	for _, v := range keys {
+		if v%2 == 1 {
+			if prevState+2 != v {
+				return nil, fmt.Errorf("found orderd part %d but previous was %d", v, prevState)
+			} else {
+				prevState = v
+			}
+		}
+	}
+	ret = &ReplayReader{
+		Header:   parts[0].Header,
+		Settings: parts[0].Settings,
+		Results:  parts[keys[len(keys)-1]].Results,
+	}
+	return
+}
 
 // OpenReplay reads header and conditionally settings, packets and resuls blobs
 //
