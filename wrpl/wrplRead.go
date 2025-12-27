@@ -83,9 +83,6 @@ func OpenPartedReplay(replayBytes [][]byte) (ret *ReplayReader, err error) {
 	if len(replayBytes) == 0 {
 		return nil, nil
 	}
-	// TODO: actually implement packet stream merging
-	// (basically do some kind of io.MultiReader but with close method that is called when readers eof/error)
-	return nil, errors.ErrUnsupported
 	parts := map[int]*ReplayReader{}
 	var sessionID uint64
 	for i, b := range replayBytes {
@@ -125,10 +122,15 @@ func OpenPartedReplay(replayBytes [][]byte) (ret *ReplayReader, err error) {
 			}
 		}
 	}
+	streams := []io.ReadCloser{}
+	for _, k := range keys {
+		streams = append(streams, parts[k].PacketStream)
+	}
 	ret = &ReplayReader{
-		Header:   parts[0].Header,
-		Settings: parts[0].Settings,
-		Results:  parts[keys[len(keys)-1]].Results,
+		Header:       parts[0].Header,
+		Settings:     parts[0].Settings,
+		Results:      parts[keys[len(keys)-1]].Results,
+		PacketStream: MultiReadCloser(streams...),
 	}
 	return
 }

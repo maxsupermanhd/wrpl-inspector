@@ -27,7 +27,6 @@ import (
 
 type PacketReader interface {
 	ReadPacket(pk *Packet) (isEOF bool, err error)
-	io.Closer
 }
 
 type PacketStreamReader struct {
