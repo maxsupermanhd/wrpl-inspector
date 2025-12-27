@@ -18,7 +18,7 @@
 
 package packetstub
 
-import "wrpl/packet"
+import "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 
 type PacketStubParser struct{}
 

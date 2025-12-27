@@ -20,8 +20,9 @@ package packetchat
 
 import (
 	"bytes"
-	"wrpl"
-	"wrpl/packet"
+
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 )
 
 type ParsedPacketChatMessage struct {

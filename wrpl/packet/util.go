@@ -22,7 +22,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"wrpl/danet"
+
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl/danet"
 )
 
 func ReadVariableLengthSize(r io.Reader) (uint32, error) {

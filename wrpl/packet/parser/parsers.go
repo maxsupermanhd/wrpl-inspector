@@ -1,13 +1,31 @@
+/*
+	wrpl: War Thunder replay parsing library (golang)
+	Copyright (C) 2025 flexcoral
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU Affero General Public License as published
+	by the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU Affero General Public License for more details.
+
+	You should have received a copy of the GNU Affero General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 package catalog
 
 import (
-	"wrpl/packet"
-	packetaward "wrpl/packet/parser/award"
-	packetchat "wrpl/packet/parser/chat"
-	packetecs "wrpl/packet/parser/ecs"
-	packetkill "wrpl/packet/parser/kill"
-	packetmovement "wrpl/packet/parser/movement"
-	packetstub "wrpl/packet/parser/stub"
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
+	packetaward "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/award"
+	packetchat "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/chat"
+	packetecs "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/ecs"
+	packetkill "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/kill"
+	packetmovement "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/movement"
+	packetstub "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/stub"
 )
 
 var (

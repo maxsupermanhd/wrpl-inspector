@@ -20,8 +20,9 @@ package packetmovement
 
 import (
 	"encoding/binary"
-	"wrpl/danet"
-	"wrpl/packet"
+
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl/danet"
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 )
 
 type EntityMovement struct {
