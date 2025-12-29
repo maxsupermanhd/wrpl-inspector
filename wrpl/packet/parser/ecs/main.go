@@ -77,6 +77,14 @@ type PacketECSParser struct {
 	Messages      []ParsedPacketECS
 }
 
+func NewPacketECSParser() *PacketECSParser {
+	return &PacketECSParser{
+		TemplateDefs:  map[ECSTemplateID]*ECSTemplate{},
+		ComponentDefs: map[ECSComponentID]*ECSComponent{},
+		Messages:      []ParsedPacketECS{},
+	}
+}
+
 func (p *PacketECSParser) Name() string {
 	return "ecs"
 }
