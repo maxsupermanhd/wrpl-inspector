@@ -137,8 +137,8 @@ func OpenPartedReplay(replayBytes [][]byte) (ret *ReplayReader, err error) {
 
 // OpenReplay reads header and conditionally settings, packets and resuls blobs
 //
-// If readPackets is true then Replay will have zlib-backed io that needs to be closed via Close
-func OpenReplay(r io.ReadSeeker, readSettings, readPackets, readResults bool) (ret *ReplayReader, err error) {
+// If openPackets is true then Replay will have zlib-backed io that needs to be closed via Close
+func OpenReplay(r io.ReadSeeker, readSettings, openPackets, readResults bool) (ret *ReplayReader, err error) {
 	ret = &ReplayReader{}
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
@@ -167,7 +167,7 @@ func OpenReplay(r io.ReadSeeker, readSettings, readPackets, readResults bool) (r
 		}
 	}
 
-	if readPackets {
+	if openPackets {
 		_, err := r.Seek(int64(ret.Header.SettingsBLKSize)+1232, io.SeekStart)
 		if err != nil {
 			return ret, fmt.Errorf("seeking for packets")
