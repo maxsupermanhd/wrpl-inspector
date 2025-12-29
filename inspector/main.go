@@ -8,7 +8,6 @@ import (
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/AllenDang/cimgui-go/implot"
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 	"github.com/rs/zerolog"
 )
@@ -31,10 +30,10 @@ type UI struct {
 
 	discovery sessionDiscoveryData
 
-	ProcessReplayFn func(header wrpl.WRPLHeader, settings []byte) ([]packet.PacketParser, []Tab)
+	ProcessReplayFn func(lrpl LoadedReplay) ([]packet.PacketParser, []Tab)
 
 	nextOpenID int
-	opened     []loadedReplay
+	opened     []LoadedReplay
 }
 
 func (ui *UI) Run() {
@@ -118,8 +117,22 @@ func (ui *UI) showMainWindow() {
 		}
 
 		for _, v := range ui.opened {
-			if imgui.BeginTabItem(fmt.Sprintf("%s##%d", v.header.SessionHEX(), v.id)) {
-				imgui.TextUnformatted("stub")
+			if imgui.BeginTabItem(fmt.Sprintf("%s##%d", v.Header.SessionHEX(), v.id)) {
+				if len(v.Tabs) == 0 {
+					imgui.TextUnformatted("no tabs are constructed for the replay")
+				} else {
+					if imgui.BeginTabBar("replay tabs") {
+						for ti, t := range v.Tabs {
+							if imgui.BeginTabItem(fmt.Sprintf("%s##%d", t.Name(), ti)) {
+								imgui.PushIDInt(int32(ti))
+								t.Run()
+								imgui.PopID()
+								imgui.EndTabItem()
+							}
+						}
+						imgui.EndTabBar()
+					}
+				}
 				imgui.EndTabItem()
 			}
 		}

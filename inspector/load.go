@@ -9,28 +9,26 @@ import (
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 )
 
-type loadedReplay struct {
+type LoadedReplay struct {
 	id       int
-	header   wrpl.WRPLHeader
-	settings []byte
-	packets  []packet.ParsedPacket
-	parsers  []packet.PacketParser
-	tabs     []Tab
+	Header   wrpl.WRPLHeader
+	Settings []byte
+	Packets  []packet.ParsedPacket
+	Parsers  []packet.PacketParser
+	Tabs     []Tab
 }
 
 func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 	defer r.Close()
 	var err error
 
-	parsers, tabs := ui.ProcessReplayFn(r.Header, r.Settings)
-
-	loaded := loadedReplay{
+	loaded := LoadedReplay{
 		id:       ui.nextOpenID,
-		header:   r.Header,
-		settings: r.Settings,
-		parsers:  parsers,
-		tabs:     tabs,
+		Header:   r.Header,
+		Settings: r.Settings,
 	}
+
+	loaded.Parsers, loaded.Tabs = ui.ProcessReplayFn(loaded)
 
 	// TODO: why can't I just pass raw r.PacketStream to packet stream reader?
 	// results in seemingly random errors
@@ -38,7 +36,7 @@ func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 	if err != nil {
 		return err
 	}
-	loaded.packets, err = packet.ParsePackets(packet.NewPacketStreamReader(bytes.NewReader(buf)), parsers)
+	loaded.Packets, err = packet.ParsePackets(packet.NewPacketStreamReader(bytes.NewReader(buf)), loaded.Parsers)
 
 	// loaded.packets, err = packet.ParsePackets(packet.NewPacketStreamReader(r.PacketStream), parsers)
 	if err != nil {

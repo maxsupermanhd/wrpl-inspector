@@ -3,8 +3,6 @@ package main
 import (
 	"os"
 
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
-
 	"github.com/maxsupermanhd/wrpl-inspector/inspector"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 )
@@ -17,7 +15,7 @@ func main() {
 	ui.Run()
 }
 
-func replayProcessor(header wrpl.WRPLHeader, settings []byte) ([]packet.PacketParser, []inspector.Tab) {
+func replayProcessor(lrpl inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
 	parsers := []packet.PacketParser{}
 	tabs := []inspector.Tab{}
 
