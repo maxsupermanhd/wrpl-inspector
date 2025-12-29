@@ -52,7 +52,7 @@ type ReplayReader struct {
 
 func (rpl *ReplayReader) Close() error {
 	if rpl.PacketStream != nil {
-		return rpl.Close()
+		return rpl.PacketStream.Close()
 	}
 	return nil
 }
@@ -168,7 +168,7 @@ func OpenReplay(r io.ReadSeeker, readSettings, openPackets, readResults bool) (r
 	}
 
 	if openPackets {
-		_, err := r.Seek(int64(ret.Header.SettingsBLKSize)+1232, io.SeekStart)
+		_, err := r.Seek(int64(ret.Header.SettingsBLKSize)+1226, io.SeekStart)
 		if err != nil {
 			return ret, fmt.Errorf("seeking for packets")
 		}
