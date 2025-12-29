@@ -1,6 +1,7 @@
 package inspector
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/AllenDang/cimgui-go/backend"
@@ -32,7 +33,8 @@ type UI struct {
 
 	ProcessReplayFn func(header wrpl.WRPLHeader, settings []byte) ([]packet.PacketParser, []Tab)
 
-	opened []loadedReplay
+	nextOpenID int
+	opened     []loadedReplay
 }
 
 func (ui *UI) Run() {
@@ -113,6 +115,13 @@ func (ui *UI) showMainWindow() {
 		if imgui.BeginTabItem("+") {
 			ui.showBrowseTab()
 			imgui.EndTabItem()
+		}
+
+		for _, v := range ui.opened {
+			if imgui.BeginTabItem(fmt.Sprintf("%s##%d", v.header.SessionHEX(), v.id)) {
+				imgui.TextUnformatted("stub")
+				imgui.EndTabItem()
+			}
 		}
 
 		imgui.EndTabBar()

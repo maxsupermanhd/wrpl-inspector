@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"bytes"
+	"io"
 	"os"
 
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
@@ -9,6 +10,7 @@ import (
 )
 
 type loadedReplay struct {
+	id       int
 	header   wrpl.WRPLHeader
 	settings []byte
 	packets  []packet.ParsedPacket
@@ -18,23 +20,33 @@ type loadedReplay struct {
 
 func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 	defer r.Close()
+	var err error
 
 	parsers, tabs := ui.ProcessReplayFn(r.Header, r.Settings)
 
 	loaded := loadedReplay{
+		id:       ui.nextOpenID,
 		header:   r.Header,
 		settings: r.Settings,
 		parsers:  parsers,
 		tabs:     tabs,
 	}
 
-	var err error
-	loaded.packets, err = packet.ParsePackets(packet.NewPacketStreamReader(r.PacketStream), parsers)
+	// TODO: why can't I just pass raw r.PacketStream to packet stream reader?
+	// results in seemingly random errors
+	buf, err := io.ReadAll(r.PacketStream)
+	if err != nil {
+		return err
+	}
+	loaded.packets, err = packet.ParsePackets(packet.NewPacketStreamReader(bytes.NewReader(buf)), parsers)
+
+	// loaded.packets, err = packet.ParsePackets(packet.NewPacketStreamReader(r.PacketStream), parsers)
 	if err != nil {
 		return err
 	}
 
 	ui.opened = append(ui.opened, loaded)
+	ui.nextOpenID++
 	return nil
 }
 
