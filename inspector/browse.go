@@ -46,7 +46,7 @@ func (ui *UI) showBrowseTab() {
 	imgui.TextUnformatted("Open replay:")
 	imgui.SameLine()
 	imgui.SetNextItemWidth(350)
-	imgui.InputTextWithHint("##downloadid", "", &ui.discovery.input, 0, imEmptyInputCallback)
+	imgui.InputTextWithHint("##downloadid", "", &ui.discovery.input, 0, ImEmptyInputCallback)
 	imgui.SameLine()
 	if imgui.Button("Download from hex sid") {
 		// ui.discovery.InputErr = fetchServerReplay(ui.discovery.Input)
@@ -64,7 +64,7 @@ func (ui *UI) showBrowseTab() {
 
 	imgui.TextUnformatted(fmt.Sprintf("Found %d replay files", len(ui.discovery.found)))
 	imgui.SameLine()
-	uiHelpMarker("Searched following locations:\n" + strings.Join(ui.discovery.dirs, "\n") + "\n\nAlso will detect directories in work dir that start with \"replay\"")
+	ImHelpMarker("Searched following locations:\n" + strings.Join(ui.discovery.dirs, "\n") + "\n\nAlso will detect directories in work dir that start with \"replay\"")
 	imgui.SameLine()
 	if imgui.SmallButton("rescan") {
 		ui.discovery.complete = false

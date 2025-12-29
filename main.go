@@ -5,7 +5,14 @@ import (
 
 	"github.com/maxsupermanhd/wrpl-inspector/inspector"
 	basictabs "github.com/maxsupermanhd/wrpl-inspector/inspector/basicTabs"
+	packetstab "github.com/maxsupermanhd/wrpl-inspector/inspector/packetsTab"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
+	packetaward "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/award"
+	packetchat "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/chat"
+	packetecs "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/ecs"
+	packetkill "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/kill"
+	packetmovement "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/movement"
+	packetslot "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/slot"
 )
 
 func main() {
@@ -17,9 +24,17 @@ func main() {
 }
 
 func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
-	parsers := []packet.PacketParser{}
+	parsers := []packet.PacketParser{
+		&packetchat.PacketChatParser{},
+		&packetaward.PacketAwardParser{},
+		&packetslot.PacketSlotParser{},
+		&packetkill.PacketKillParser{},
+		packetecs.NewPacketECSParser(),
+		&packetmovement.PacketMovementParser{},
+	}
 	tabs := []inspector.Tab{
 		basictabs.NewBasicSummaryTab(rpl),
+		packetstab.NewPacketsTab(rpl),
 	}
 
 	// parserAward := packetaward.PacketAwardParser{}
