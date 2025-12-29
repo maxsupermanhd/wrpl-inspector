@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/maxsupermanhd/wrpl-inspector/inspector"
+	basictabs "github.com/maxsupermanhd/wrpl-inspector/inspector/basicTabs"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 )
 
@@ -15,9 +16,11 @@ func main() {
 	ui.Run()
 }
 
-func replayProcessor(lrpl inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
+func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
 	parsers := []packet.PacketParser{}
-	tabs := []inspector.Tab{}
+	tabs := []inspector.Tab{
+		basictabs.NewBasicSummaryTab(rpl),
+	}
 
 	// parserAward := packetaward.PacketAwardParser{}
 	// tabs = append(tabs)

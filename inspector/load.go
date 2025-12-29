@@ -22,7 +22,7 @@ func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 	defer r.Close()
 	var err error
 
-	loaded := LoadedReplay{
+	loaded := &LoadedReplay{
 		id:       ui.nextOpenID,
 		Header:   r.Header,
 		Settings: r.Settings,

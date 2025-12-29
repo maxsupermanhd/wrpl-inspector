@@ -30,10 +30,10 @@ type UI struct {
 
 	discovery sessionDiscoveryData
 
-	ProcessReplayFn func(lrpl LoadedReplay) ([]packet.PacketParser, []Tab)
+	ProcessReplayFn func(lrpl *LoadedReplay) ([]packet.PacketParser, []Tab)
 
 	nextOpenID int
-	opened     []LoadedReplay
+	opened     []*LoadedReplay
 }
 
 func (ui *UI) Run() {
@@ -116,8 +116,9 @@ func (ui *UI) showMainWindow() {
 			imgui.EndTabItem()
 		}
 
-		for _, v := range ui.opened {
-			if imgui.BeginTabItem(fmt.Sprintf("%s##%d", v.Header.SessionHEX(), v.id)) {
+		for i, v := range ui.opened {
+			isOpen := true
+			if imgui.BeginTabItemV(fmt.Sprintf("%s##%d", v.Header.SessionHEX(), v.id), &isOpen, 0) {
 				if len(v.Tabs) == 0 {
 					imgui.TextUnformatted("no tabs are constructed for the replay")
 				} else {
@@ -134,6 +135,9 @@ func (ui *UI) showMainWindow() {
 					}
 				}
 				imgui.EndTabItem()
+			}
+			if isOpen == false {
+				ui.opened = append(ui.opened[:i], ui.opened[i+1:]...)
 			}
 		}
 
