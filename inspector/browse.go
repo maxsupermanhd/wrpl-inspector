@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/AllenDang/cimgui-go/imgui"
+	"github.com/maxsupermanhd/wrpl-inspector/inspector/imui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/rs/zerolog/log"
 )
@@ -46,7 +47,7 @@ func (ui *UI) showBrowseTab() {
 	imgui.TextUnformatted("Open replay:")
 	imgui.SameLine()
 	imgui.SetNextItemWidth(350)
-	imgui.InputTextWithHint("##downloadid", "", &ui.discovery.input, 0, ImEmptyInputCallback)
+	imgui.InputTextWithHint("##downloadid", "", &ui.discovery.input, 0, imui.ImEmptyInputCallback)
 	imgui.SameLine()
 	if imgui.Button("Download from hex sid") {
 		// ui.discovery.InputErr = fetchServerReplay(ui.discovery.Input)
@@ -64,7 +65,7 @@ func (ui *UI) showBrowseTab() {
 
 	imgui.TextUnformatted(fmt.Sprintf("Found %d replay files", len(ui.discovery.found)))
 	imgui.SameLine()
-	ImHelpMarker("Searched following locations:\n" + strings.Join(ui.discovery.dirs, "\n") + "\n\nAlso will detect directories in work dir that start with \"replay\"")
+	imui.ImHelpMarker("Searched following locations:\n" + strings.Join(ui.discovery.dirs, "\n") + "\n\nAlso will detect directories in work dir that start with \"replay\"")
 	imgui.SameLine()
 	if imgui.SmallButton("rescan") {
 		ui.discovery.complete = false

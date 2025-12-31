@@ -43,6 +43,10 @@ func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 		return err
 	}
 
+	for _, t := range loaded.Tabs {
+		t.Init()
+	}
+
 	ui.opened = append(ui.opened, loaded)
 	ui.nextOpenID++
 	return nil

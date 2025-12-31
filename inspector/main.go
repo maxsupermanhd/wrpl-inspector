@@ -8,12 +8,14 @@ import (
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/AllenDang/cimgui-go/implot"
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 	"github.com/rs/zerolog"
 )
 
 type Tab interface {
 	Name() string
+	Init()
 	Run()
 }
 
@@ -24,6 +26,8 @@ type UI struct {
 	InitWindowWidth     int
 	InitWindowHeight    int
 	InitWindowTargetFPS int
+
+	InitWindowFlags map[glfwbackend.GLFWWindowFlags]int
 
 	showDemoWindowImgui  bool
 	showDemoWindowImplot bool
@@ -36,17 +40,20 @@ type UI struct {
 	opened     []*LoadedReplay
 }
 
-func (ui *UI) Run() {
+func (ui *UI) Run(autoOpen ...*wrpl.ReplayReader) error {
 	var err error
 	ui.imBackend, err = backend.CreateBackend(glfwbackend.NewGLFWBackend())
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsDecorated, 1)
 	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsTransparent, 0)
 	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsVisible, 1)
 	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsResizable, 1)
+	for k, v := range ui.InitWindowFlags {
+		ui.imBackend.SetWindowFlags(k, v)
+	}
 	if ui.InitWindowWidth == 0 {
 		ui.InitWindowWidth = 1300
 	}
@@ -78,10 +85,18 @@ func (ui *UI) Run() {
 
 	implot.CreateContext()
 
+	for _, v := range autoOpen {
+		err := ui.loadReplay(v)
+		if err != nil {
+			return err
+		}
+	}
+
 	ui.imBackend.Run(ui.loop)
 
 	implot.DestroyContext()
 
+	return nil
 }
 
 func (ui *UI) loop() {

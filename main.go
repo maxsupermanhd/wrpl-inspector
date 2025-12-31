@@ -3,9 +3,11 @@ package main
 import (
 	"os"
 
+	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector"
 	basictabs "github.com/maxsupermanhd/wrpl-inspector/inspector/basicTabs"
 	packetstab "github.com/maxsupermanhd/wrpl-inspector/inspector/packetsTab"
+	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 	packetaward "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/award"
 	packetchat "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/chat"
@@ -19,8 +21,13 @@ func main() {
 	ui := &inspector.UI{
 		InitFont:        noerr(os.ReadFile("HackNerdFontMono-Regular.ttf")),
 		ProcessReplayFn: replayProcessor,
+		InitWindowFlags: map[glfwbackend.GLFWWindowFlags]int{
+			glfwbackend.GLFWWindowFlagsMaximized: 1,
+		},
 	}
-	ui.Run()
+	f := noerr(os.Open(`/home/max/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/War Thunder/Replays/#2025.12.31 19.35.21.wrpl`))
+	defer f.Close()
+	ui.Run(noerr(wrpl.OpenReplay(f, true, true, true)))
 }
 
 func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
