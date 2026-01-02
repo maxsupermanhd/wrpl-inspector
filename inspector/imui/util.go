@@ -80,3 +80,9 @@ func ImAutoCombo[T AutoComboOption](label string, val *T) bool {
 	*val = T(curr)
 	return ret
 }
+
+func FlagUpdate(flag *bool, update bool) {
+	if update {
+		*flag = true
+	}
+}

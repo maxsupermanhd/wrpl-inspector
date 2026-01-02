@@ -8,7 +8,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector"
 	basictabs "github.com/maxsupermanhd/wrpl-inspector/inspector/basicTabs"
-	packetstab "github.com/maxsupermanhd/wrpl-inspector/inspector/packetsTab"
+	"github.com/maxsupermanhd/wrpl-inspector/inspector/packetui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 	packetaward "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/award"
@@ -62,7 +62,7 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		}
 		tabs = append(tabs, genBlkJSONTab("Results", results))
 	}
-	tabs = append(tabs, packetstab.NewPacketsTab(rpl))
+	tabs = append(tabs, packetui.NewPacketsTab(rpl))
 	return parsers, tabs
 }
 

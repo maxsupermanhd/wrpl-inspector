@@ -1,4 +1,4 @@
-package packetstab
+package packetui
 
 import (
 	"encoding/hex"
@@ -73,7 +73,7 @@ type PacketsTab struct {
 func (tab *PacketsTab) Run() {
 
 	imgui.AlignTextToFramePadding()
-	imgui.TextUnformatted("Searching")
+	imgui.TextUnformatted("Inspecting")
 	imgui.SameLine()
 	if tab.streamNamesMaxWidth == 0 {
 		for _, v := range tab.streamNames {
@@ -81,31 +81,30 @@ func (tab *PacketsTab) Run() {
 		}
 	}
 	imgui.SetNextItemWidth(tab.streamNamesMaxWidth + 30)
-	tab.filterNeeded = tab.filterNeeded || imgui.ComboStrarr("##searching", &tab.streamSelected, tab.streamNames, int32(len(tab.streamNames)))
+	imui.FlagUpdate(&tab.filterNeeded, imgui.ComboStrarr("##searching", &tab.streamSelected, tab.streamNames, int32(len(tab.streamNames))))
 	imgui.SameLine()
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted(fmt.Sprintf("Total: %d Showing: %d (%.2f%%) (filtered in %s)",
-		len(tab.streams[tab.streamSelected]), len(tab.view.stream),
+		len(tab.streams[tab.streamSelected]),
+		len(tab.view.stream),
 		(float64(len(tab.view.stream))/float64(len(tab.streams[tab.streamSelected])))*100,
 		tab.filterTook.Round(time.Millisecond).String()))
 
-	tab.filterNeeded = tab.filterNeeded || imui.ImAutoCombo("Input", &tab.FilterInput)
+	imui.FlagUpdate(&tab.filterNeeded, imui.ImAutoCombo("Input", &tab.FilterInput))
 	imgui.SameLine()
-	tab.filterNeeded = tab.filterNeeded || imui.ImAutoCombo("Mode", &tab.FilterMode)
+	imui.FlagUpdate(&tab.filterNeeded, imui.ImAutoCombo("Mode", &tab.FilterMode))
 	imgui.SameLine()
 	imgui.TextUnformatted("Type")
 	imgui.SameLine()
-	tab.filterNeeded = tab.filterNeeded || imgui.Checkbox("##typeEnable", &tab.FilterTypeEnable)
+	imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("##typeEnable", &tab.FilterTypeEnable))
 	imgui.SameLine()
 	imgui.SetNextItemWidth(100)
-	tab.filterNeeded = tab.filterNeeded || imgui.InputInt("##typeValue", &tab.FilterType)
+	imui.FlagUpdate(&tab.filterNeeded, imgui.InputInt("##typeValue", &tab.FilterType))
 
-	tab.filterNeeded = tab.filterNeeded || imgui.InputTextWithHint("##filterConstraint", "^025858f0", &tab.FilterConstraint, 0, func(data imgui.InputTextCallbackData) int {
+	imui.FlagUpdate(&tab.filterNeeded, imgui.InputTextWithHint("##filterConstraint", "^025858f0", &tab.FilterConstraint, 0, func(data imgui.InputTextCallbackData) int {
 		tab.filterNeeded = true
 		return 0
-	})
-
-	tab.view.Run()
+	}))
 
 	if tab.filterNeeded {
 		tab.filterNeeded = false
@@ -113,6 +112,8 @@ func (tab *PacketsTab) Run() {
 		tab.filterError = tab.filter()
 		tab.filterTook = time.Since(t)
 	}
+
+	tab.view.Run()
 }
 
 //go:generate stringer -type FilterMode
@@ -133,11 +134,6 @@ const (
 )
 
 func (tab *PacketsTab) filter() error {
-	if tab.FilterConstraint == "" {
-		tab.view.stream = tab.streams[tab.streamSelected]
-		return nil
-	}
-
 	var filterMatcherFn func(input []byte) (matches bool)
 	switch tab.FilterMode {
 	case FilterModeContains:
