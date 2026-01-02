@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector"
 	basictabs "github.com/maxsupermanhd/wrpl-inspector/inspector/basicTabs"
 	packetstab "github.com/maxsupermanhd/wrpl-inspector/inspector/packetsTab"
@@ -39,14 +41,37 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		packetecs.NewPacketECSParser(),
 		&packetmovement.PacketMovementParser{},
 	}
-	tabs := []inspector.Tab{
-		basictabs.NewBasicSummaryTab(rpl),
-		packetstab.NewPacketsTab(rpl),
+	tabs := []inspector.Tab{}
+	tabs = append(tabs, basictabs.NewBasicSummaryTab(rpl))
+	tabs = append(tabs, basictabs.NewBasicTextTab("Header", spew.Sdump(rpl.Header)))
+	if len(rpl.Settings) > 0 {
+		settings, err := wrpl.ParseBlk(rpl.Settings)
+		if err != nil {
+			settings = map[string]any{
+				"blk parse error": err,
+			}
+		}
+		tabs = append(tabs, genBlkJSONTab("Settings", settings))
 	}
-
-	// parserAward := packetaward.PacketAwardParser{}
-	// tabs = append(tabs)
+	if len(rpl.Results) > 0 {
+		results, err := wrpl.ParseBlk(rpl.Results)
+		if err != nil {
+			results = map[string]any{
+				"Error": err,
+			}
+		}
+		tabs = append(tabs, genBlkJSONTab("Results", results))
+	}
+	tabs = append(tabs, packetstab.NewPacketsTab(rpl))
 	return parsers, tabs
+}
+
+func genBlkJSONTab(name string, data any) inspector.Tab {
+	dataJSON, err := json.MarshalIndent(data, "", "\t")
+	if err != nil {
+		return basictabs.NewBasicTextTab(name, "Marshal error: "+err.Error())
+	}
+	return basictabs.NewBasicTextTab(name, string(dataJSON))
 }
 
 func must(err error) {
