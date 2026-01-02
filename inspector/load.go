@@ -14,6 +14,7 @@ type LoadedReplay struct {
 	Header   wrpl.WRPLHeader
 	Settings []byte
 	Packets  []packet.ParsedPacket
+	Results  []byte
 	Parsers  []packet.PacketParser
 	Tabs     []Tab
 }
@@ -26,6 +27,7 @@ func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 		id:       ui.nextOpenID,
 		Header:   r.Header,
 		Settings: r.Settings,
+		Results:  r.Results,
 	}
 
 	loaded.Parsers, loaded.Tabs = ui.ProcessReplayFn(loaded)
