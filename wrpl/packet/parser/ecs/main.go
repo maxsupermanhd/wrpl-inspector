@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/maxsupermanhd/wrpl-inspector/inspector/packetui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/danet"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 
@@ -48,6 +49,7 @@ type ECSMessage struct {
 
 type ParsedPacketECS struct {
 	PacketSeq        uint64
+	PacketTime       uint32
 	Control          byte
 	WasCompressed    bool
 	DecompressFailed bool
@@ -82,6 +84,34 @@ func NewPacketECSParser() *PacketECSParser {
 		TemplateDefs:  map[ECSTemplateID]*ECSTemplate{},
 		ComponentDefs: map[ECSComponentID]*ECSComponent{},
 		Messages:      []ParsedPacketECS{},
+	}
+}
+
+func (p *PacketECSParser) GetPacketStreams() []packetui.ParsedPacketStream {
+	ret := []packet.ParsedPacket{}
+	for _, v := range p.Messages {
+		for _, v2 := range v.Messages {
+			ret = append(ret, packet.ParsedPacket{
+				Packet: packet.Packet{
+					Seq:           v.PacketSeq,
+					CurrentTime:   v.PacketTime,
+					PacketType:    0,
+					PacketPayload: v2.Data,
+				},
+				ParsersResults: []packet.ParserResult{{
+					Parser: "ecs",
+					Err:    nil,
+					Data:   v2,
+				}},
+			})
+		}
+	}
+
+	return []packetui.ParsedPacketStream{
+		{
+			Name:    "ECS messages",
+			Packets: ret,
+		},
 	}
 }
 
@@ -168,7 +198,10 @@ func (p *PacketECSParser) ParseECSConstructMessage(r *danet.BitReader) (ret *ECS
 }
 
 func (p *PacketECSParser) Parse(pk *packet.Packet) (any, error) {
-	dat := &ParsedPacketECS{}
+	dat := &ParsedPacketECS{
+		PacketSeq:  pk.Seq,
+		PacketTime: pk.CurrentTime,
+	}
 	var err error
 	r := danet.NewBitReader(pk.PacketPayload)
 	dat.Control, err = r.ReadByte()
@@ -204,5 +237,6 @@ func (p *PacketECSParser) Parse(pk *packet.Packet) (any, error) {
 			dat.Messages = append(dat.Messages, msg)
 		}
 	}
+	p.Messages = append(p.Messages, *dat)
 	return dat, nil
 }
