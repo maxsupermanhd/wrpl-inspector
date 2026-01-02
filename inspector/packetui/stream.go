@@ -1,9 +1,13 @@
 package packetui
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
+	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -24,6 +28,9 @@ type PacketStreamView struct {
 }
 
 func (view *PacketStreamView) UpdateIndex() {
+	if len(view.stream) == 0 {
+		return
+	}
 	if view.idx < 0 || view.idx >= len(view.stream) {
 		view.idx = 0
 	}
@@ -98,6 +105,17 @@ func (view *PacketStreamView) Run() {
 	imgui.SameLine()
 	if imgui.Button("spew") {
 		imgui.SetClipboardText(spew.Sdump(pk))
+	}
+
+	imgui.SameLine()
+	imgui.TextUnformatted("Open in:")
+	imgui.SameLine()
+	if imgui.Button("imhex") {
+		c := exec.Command("imhex", "/dev/stdin")
+		c.Stdin = bytes.NewBuffer(slices.Clone(pk.PacketPayload))
+		go func() {
+			c.Run()
+		}()
 	}
 
 	switch view.viewType {
@@ -223,18 +241,15 @@ func (view *PacketStreamView) Run() {
 					}
 				}
 			}
-			doIdxScroll = doIdxScroll || imgui.IsItemHovered()
 			imgui.EndTable()
+			doIdxScroll = doIdxScroll || imgui.IsItemHovered()
 		}
 	}
 
 	if doIdxScroll {
 		wh := imgui.CurrentIO().MouseWheel()
-		if wh < 0 {
-			view.idx = max(0, min(len(view.stream)-1, view.idx+1))
-		} else if wh > 0 {
-			view.idx = max(0, min(len(view.stream)-1, view.idx-1))
-		}
+		view.idx -= int(math.Round(float64(wh)))
+		view.idx = max(0, min(len(view.stream)-1, view.idx))
 	}
 }
 

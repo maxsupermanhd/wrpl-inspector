@@ -8,6 +8,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector"
 	basictabs "github.com/maxsupermanhd/wrpl-inspector/inspector/basicTabs"
+	"github.com/maxsupermanhd/wrpl-inspector/inspector/ecsui"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector/packetui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
@@ -33,13 +34,14 @@ func main() {
 }
 
 func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
+	ecs := packetecs.NewPacketECSParser()
 	parsers := []packet.PacketParser{
 		&packetchat.PacketChatParser{},
 		&packetaward.PacketAwardParser{},
 		&packetslot.PacketSlotParser{},
 		&packetkill.PacketKillParser{},
-		packetecs.NewPacketECSParser(),
 		&packetmovement.PacketMovementParser{},
+		ecs,
 	}
 	tabs := []inspector.Tab{}
 	tabs = append(tabs, basictabs.NewBasicSummaryTab(rpl))
@@ -62,7 +64,8 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		}
 		tabs = append(tabs, genBlkJSONTab("Results", results))
 	}
-	tabs = append(tabs, packetui.NewPacketsTab(rpl))
+	tabs = append(tabs, packetui.NewPacketsTab(rpl, ecs))
+	tabs = append(tabs, ecsui.NewECSUI(rpl, ecs))
 	return parsers, tabs
 }
 
