@@ -23,22 +23,26 @@ type PacketStreamView struct {
 	RawTime bool
 }
 
+func (view *PacketStreamView) UpdateIndex() {
+	if view.idx < 0 || view.idx >= len(view.stream) {
+		view.idx = 0
+	}
+	if view.stream[view.idx].Seq == view.seq {
+		return
+	}
+	view.idx = 0
+	for view.idx = 0; view.idx < len(view.stream); view.idx++ {
+		if view.stream[view.idx].Seq >= view.seq {
+			view.seq = view.stream[view.idx].Seq
+			break
+		}
+	}
+}
+
 func (view *PacketStreamView) Run() {
 	if len(view.stream) == 0 {
 		imgui.TextUnformatted("no packets to show")
 		return
-	}
-	if view.idx < 0 || view.idx >= len(view.stream) {
-		view.idx = 0
-	}
-	if view.stream[view.idx].Seq != view.seq {
-		for i, v := range view.stream {
-			if v.Seq >= view.seq {
-				break
-			}
-			view.seq = v.Seq
-			view.idx = i
-		}
 	}
 
 	imui.ImAutoCombo("View", &view.viewType)
@@ -47,11 +51,18 @@ func (view *PacketStreamView) Run() {
 	imgui.TextUnformatted("Packet")
 	imgui.SameLine()
 	idx := int32(view.idx)
+	imgui.SetNextItemWidth(100)
 	imgui.InputInt("##packetIdx", &idx)
 	doIdxScroll := imgui.IsItemHovered()
 	view.idx = int(idx)
+	if view.idx < 0 || view.idx >= len(view.stream) {
+		view.idx = 0
+	}
 
 	pk := view.stream[view.idx]
+	view.seq = pk.Seq
+	imgui.SameLine()
+	imgui.TextUnformatted(fmt.Sprintf("Seq: %d", view.seq))
 
 	if view.RawTime {
 		imui.ImTextParam("Timestamp:", strconv.Itoa(int(pk.CurrentTime)))
@@ -96,6 +107,8 @@ func (view *PacketStreamView) Run() {
 	case ViewTypeContextPlain:
 		fallthrough
 	case ViewTypeContextHex:
+		fallthrough
+	case ViewTypeContextHexPlain:
 		numLinesInRow := 1
 		contextSize := 20
 		if view.viewType == ViewTypeContextHexPlain {
@@ -229,10 +242,10 @@ func (view *PacketStreamView) Run() {
 type ViewType int
 
 const (
-	ViewTypeHexdump ViewType = iota
+	ViewTypeContextHexPlain ViewType = iota
 	ViewTypeContextHex
 	ViewTypeContextPlain
-	ViewTypeContextHexPlain
+	ViewTypeHexdump
 	ViewTypeAmountOverTime
 	ViewTypeLengthOverTime
 )

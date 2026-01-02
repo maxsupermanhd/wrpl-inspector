@@ -8,17 +8,17 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[ViewTypeHexdump-0]
+	_ = x[ViewTypeContextHexPlain-0]
 	_ = x[ViewTypeContextHex-1]
 	_ = x[ViewTypeContextPlain-2]
-	_ = x[ViewTypeContextHexPlain-3]
+	_ = x[ViewTypeHexdump-3]
 	_ = x[ViewTypeAmountOverTime-4]
 	_ = x[ViewTypeLengthOverTime-5]
 }
 
-const _ViewType_name = "ViewTypeHexdumpViewTypeContextHexViewTypeContextPlainViewTypeContextHexPlainViewTypeAmountOverTimeViewTypeLengthOverTime"
+const _ViewType_name = "ViewTypeContextHexPlainViewTypeContextHexViewTypeContextPlainViewTypeHexdumpViewTypeAmountOverTimeViewTypeLengthOverTime"
 
-var _ViewType_index = [...]uint8{0, 15, 33, 53, 76, 98, 120}
+var _ViewType_index = [...]uint8{0, 23, 41, 61, 76, 98, 120}
 
 func (i ViewType) String() string {
 	if i < 0 || i >= ViewType(len(_ViewType_index)-1) {

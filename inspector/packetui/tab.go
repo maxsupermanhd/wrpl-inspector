@@ -110,6 +110,7 @@ func (tab *PacketsTab) Run() {
 		tab.filterNeeded = false
 		t := time.Now()
 		tab.filterError = tab.filter()
+		tab.view.UpdateIndex()
 		tab.filterTook = time.Since(t)
 	}
 
