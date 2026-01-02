@@ -155,6 +155,7 @@ type ParsedPacket struct {
 func ParsePackets(r PacketReader, parsers []PacketParser) ([]ParsedPacket, error) {
 	matcher := NewParserMatcher(parsers)
 	ret := []ParsedPacket{}
+	seq := uint64(0)
 	for {
 		pk := ParsedPacket{
 			Packet:         Packet{},
@@ -167,8 +168,9 @@ func ParsePackets(r PacketReader, parsers []PacketParser) ([]ParsedPacket, error
 		if isEOF {
 			return ret, nil
 		}
+		pk.Packet.Seq = seq
 		pk.ParsersResults = matcher.Match(&pk.Packet)
 		ret = append(ret, pk)
-		pk.Seq++
+		seq++
 	}
 }
