@@ -23,6 +23,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
@@ -55,11 +56,37 @@ type SlotPrefixedMessage struct {
 }
 
 type PacketSlotParser struct {
-	Players [256]*Player
+	Players      [256]*Player
+	Messages     []packet.ParsedPacket
+	KeepMessages bool
 }
 
 func (p *PacketSlotParser) Name() string {
 	return "slot"
+}
+
+func (p *PacketSlotParser) GetPacketStreams() []packet.ParsedPacketStream {
+	ret := []packet.ParsedPacket{}
+	for _, v := range p.Messages {
+		for _, v2 := range v.ParsersResults[0].Data.(ParsedPacketSlotMessage).Messages {
+			ret = append(ret, packet.ParsedPacket{
+				Packet: packet.Packet{
+					Seq:           v.Seq,
+					CurrentTime:   v.CurrentTime,
+					PacketType:    v2.Slot,
+					PacketPayload: v2.Message,
+				},
+				ParsersResults: []packet.ParserResult{v2.ParserResult},
+			})
+		}
+	}
+
+	return []packet.ParsedPacketStream{
+		{
+			Name:    "Slot messages",
+			Packets: ret,
+		},
+	}
 }
 
 func (p *PacketSlotParser) ParsesMatching() map[byte][][]packet.ParsingCondition {
@@ -151,6 +178,21 @@ func (p *PacketSlotParser) Parse(pk *packet.Packet) (any, error) {
 				Data: data,
 				Err:  err,
 			},
+		})
+	}
+	if p.KeepMessages {
+		p.Messages = append(p.Messages, packet.ParsedPacket{
+			Packet: packet.Packet{
+				Seq:           pk.Seq,
+				CurrentTime:   pk.CurrentTime,
+				PacketType:    pk.PacketType,
+				PacketPayload: slices.Clone(pk.PacketPayload),
+			},
+			ParsersResults: []packet.ParserResult{{
+				Parser: "Slot",
+				Data:   *parsed,
+				Err:    nil,
+			}},
 		})
 	}
 	return parsed, err

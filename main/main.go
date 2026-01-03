@@ -34,7 +34,9 @@ func main() {
 
 func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
 	ecs := packetecs.NewPacketECSParser()
-	slot := &packetslot.PacketSlotParser{}
+	slot := &packetslot.PacketSlotParser{
+		KeepMessages: true,
+	}
 	parsers := []packet.PacketParser{
 		&packetchat.PacketChatParser{},
 		&packetaward.PacketAwardParser{},
@@ -64,7 +66,7 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		}
 		tabs = append(tabs, genBlkJSONTab("Results", results))
 	}
-	tabs = append(tabs, packetui.NewPacketsTab(rpl, ecs))
+	tabs = append(tabs, packetui.NewPacketsTab(rpl, ecs, slot))
 	tabs = append(tabs, ecsui.NewECSUI(rpl, ecs))
 	tabs = append(tabs, playersui.NewPlayersUI(rpl, slot))
 	return parsers, tabs
