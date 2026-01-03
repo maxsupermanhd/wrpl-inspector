@@ -26,7 +26,7 @@ type PacketStreamProvider interface {
 func NewPacketsTab(rpl *inspector.LoadedReplay, additionalStreams ...PacketStreamProvider) *PacketsTab {
 	tab := &PacketsTab{
 		rpl:             rpl,
-		streamProviders: additionalStreams,
+		StreamProviders: additionalStreams,
 		filterNeeded:    true,
 	}
 	return tab
@@ -41,7 +41,7 @@ func (tab *PacketsTab) Init() {
 	tab.streams = [][]packet.ParsedPacket{
 		tab.rpl.Packets,
 	}
-	for _, v := range tab.streamProviders {
+	for _, v := range tab.StreamProviders {
 		for _, s := range v.GetPacketStreams() {
 			tab.streamNames = append(tab.streamNames, v.Name()+": "+s.Name)
 			tab.streams = append(tab.streams, s.Packets)
@@ -56,7 +56,7 @@ type PacketsTab struct {
 	streamNames         []string
 	streamNamesMaxWidth float32
 	streams             [][]packet.ParsedPacket
-	streamProviders     []PacketStreamProvider
+	StreamProviders     []PacketStreamProvider
 
 	FilterInput      FilterInput
 	FilterMode       FilterMode

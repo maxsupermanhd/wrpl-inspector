@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/AllenDang/cimgui-go/imgui"
+	"github.com/AllenDang/cimgui-go/implot"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector/imui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
@@ -24,7 +25,8 @@ type PacketStreamView struct {
 	seq      uint64
 	stream   []packet.ParsedPacket
 
-	RawTime bool
+	RawTime    bool
+	ShowParsed bool
 }
 
 func (view *PacketStreamView) UpdateIndex() {
@@ -65,6 +67,10 @@ func (view *PacketStreamView) Run() {
 	if view.idx < 0 || view.idx >= len(view.stream) {
 		view.idx = 0
 	}
+	imgui.SameLine()
+	imgui.TextUnformatted("Show parsed")
+	imgui.SameLine()
+	imgui.Checkbox("##showParsed", &view.ShowParsed)
 
 	pk := view.stream[view.idx]
 	view.seq = pk.Seq
@@ -118,6 +124,11 @@ func (view *PacketStreamView) Run() {
 		}()
 	}
 
+	avail := imgui.ContentRegionAvail()
+	if view.ShowParsed {
+		avail.X *= 0.5
+	}
+	imgui.BeginChildStrV("contents view", avail, 0, 0)
 	switch view.viewType {
 	case ViewTypeHexdump:
 		d := hex.Dump(view.stream[view.idx].PacketPayload)
@@ -134,7 +145,7 @@ func (view *PacketStreamView) Run() {
 			numLinesInRow = 2
 		}
 		tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollX
-		if imgui.BeginTableV("##context", 6, tableFlags, imgui.Vec2{X: 0, Y: 0}, 0) {
+		if imgui.BeginTableV("##context", 6, tableFlags, imgui.Vec2{}, 0) {
 			imgui.TableSetupColumn("idx")
 			imgui.TableSetupColumn("seq")
 			imgui.TableSetupColumn("time")
@@ -244,6 +255,43 @@ func (view *PacketStreamView) Run() {
 			imgui.EndTable()
 			doIdxScroll = doIdxScroll || imgui.IsItemHovered()
 		}
+	case 4:
+		plX := []float32{}
+		plY := []float32{}
+		prevTime := -1
+		for i := range view.stream {
+			if prevTime == int(view.stream[i].CurrentTime) {
+				plY[len(plY)-1]++
+			} else {
+				plX = append(plX, float32(view.stream[i].CurrentTime))
+				plY = append(plY, float32(1))
+				prevTime = int(view.stream[i].CurrentTime)
+			}
+		}
+		if implot.BeginPlot("##da plot search") {
+			implot.PlotBarsFloatPtrFloatPtr("val", &plX[0], &plY[0], int32(len(plX)), 1.0)
+			implot.EndPlot()
+		}
+	case 5:
+		plX := []float32{}
+		plY := []float32{}
+		for i := range view.stream {
+			plX = append(plX, float32(view.stream[i].CurrentTime))
+			plY = append(plY, float32(len(view.stream[i].PacketPayload)))
+		}
+		if implot.BeginPlot("##da plot search") {
+			implot.PlotBarsFloatPtrFloatPtr("val", &plX[0], &plY[0], int32(len(plX)), 1.0)
+			implot.EndPlot()
+		}
+	}
+	imgui.EndChild()
+
+	if view.ShowParsed {
+		imgui.SameLine()
+		imgui.BeginChildStrV("parsed view", avail, 0, 0)
+		parsedDump := spew.Sdump(pk.ParsersResults)
+		imgui.InputTextMultiline("##parsed", &parsedDump, imgui.ContentRegionAvail(), imgui.InputTextFlagsReadOnly, imui.ImEmptyInputCallback)
+		imgui.EndChild()
 	}
 
 	if doIdxScroll {
