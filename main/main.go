@@ -29,9 +29,7 @@ func main() {
 			glfwbackend.GLFWWindowFlagsMaximized: 1,
 		},
 	}
-	f := noerr(os.Open(`/home/max/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/War Thunder/Replays/#2025.12.31 19.35.21.wrpl`))
-	defer f.Close()
-	ui.Run(noerr(wrpl.OpenReplay(f, true, true, true)))
+	ui.Run()
 }
 
 func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
