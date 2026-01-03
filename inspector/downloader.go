@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -26,7 +27,7 @@ func (dd *downloaderData) isDownloading() bool {
 }
 
 func (dd *downloaderData) downloadStart(sid string) error {
-	err := os.MkdirAll("fetchedReplays", 0755)
+	err := os.MkdirAll(filepath.Join("fetchedReplays", sid), 0755)
 	if err != nil {
 		return err
 	}
@@ -116,7 +117,7 @@ reqLoop:
 
 		dd.setStatus("downloaded %q %s in %s\n", partUrl, humanize.Bytes(uint64(partBytes.Len())), time.Since(timeStarted).Round(time.Second))
 
-		err = os.WriteFile("fetchedReplays/"+partFname, partBytes.Bytes(), 0644)
+		err = os.WriteFile(filepath.Join("fetchedReplays", sid, partFname), partBytes.Bytes(), 0644)
 		if err != nil {
 			dd.setStatus("error saving %q: %s", partUrl, err.Error())
 		}
