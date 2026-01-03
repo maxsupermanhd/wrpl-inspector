@@ -10,6 +10,7 @@ import (
 	basictabs "github.com/maxsupermanhd/wrpl-inspector/inspector/basicTabs"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector/ecsui"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector/packetui"
+	"github.com/maxsupermanhd/wrpl-inspector/inspector/playersui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 	packetaward "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/award"
@@ -35,13 +36,14 @@ func main() {
 
 func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
 	ecs := packetecs.NewPacketECSParser()
+	slot := &packetslot.PacketSlotParser{}
 	parsers := []packet.PacketParser{
 		&packetchat.PacketChatParser{},
 		&packetaward.PacketAwardParser{},
-		&packetslot.PacketSlotParser{},
 		&packetkill.PacketKillParser{},
 		&packetmovement.PacketMovementParser{},
 		ecs,
+		slot,
 	}
 	tabs := []inspector.Tab{}
 	tabs = append(tabs, basictabs.NewBasicSummaryTab(rpl))
@@ -66,6 +68,7 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 	}
 	tabs = append(tabs, packetui.NewPacketsTab(rpl, ecs))
 	tabs = append(tabs, ecsui.NewECSUI(rpl, ecs))
+	tabs = append(tabs, playersui.NewPlayersUI(rpl, slot))
 	return parsers, tabs
 }
 
