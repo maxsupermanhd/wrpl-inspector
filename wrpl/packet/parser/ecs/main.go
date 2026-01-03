@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/maxsupermanhd/wrpl-inspector/inspector/packetui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/danet"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 
@@ -87,7 +86,7 @@ func NewPacketECSParser() *PacketECSParser {
 	}
 }
 
-func (p *PacketECSParser) GetPacketStreams() []packetui.ParsedPacketStream {
+func (p *PacketECSParser) GetPacketStreams() []packet.ParsedPacketStream {
 	ret := []packet.ParsedPacket{}
 	for _, v := range p.Messages {
 		for _, v2 := range v.Messages {
@@ -107,7 +106,7 @@ func (p *PacketECSParser) GetPacketStreams() []packetui.ParsedPacketStream {
 		}
 	}
 
-	return []packetui.ParsedPacketStream{
+	return []packet.ParsedPacketStream{
 		{
 			Name:    "ECS messages",
 			Packets: ret,

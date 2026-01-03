@@ -31,17 +31,7 @@ import (
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
 )
 
-type ParsedPacketStream struct {
-	Name    string
-	Packets []packet.ParsedPacket
-}
-
-type PacketStreamProvider interface {
-	GetPacketStreams() []ParsedPacketStream
-	Name() string
-}
-
-func NewPacketsTab(rpl *inspector.LoadedReplay, additionalStreams ...PacketStreamProvider) *PacketsTab {
+func NewPacketsTab(rpl *inspector.LoadedReplay, additionalStreams ...packet.PacketStreamProvider) *PacketsTab {
 	tab := &PacketsTab{
 		rpl:             rpl,
 		StreamProviders: additionalStreams,
@@ -74,7 +64,7 @@ type PacketsTab struct {
 	streamNames         []string
 	streamNamesMaxWidth float32
 	streams             [][]packet.ParsedPacket
-	StreamProviders     []PacketStreamProvider
+	StreamProviders     []packet.PacketStreamProvider
 
 	FilterInput      FilterInput
 	FilterMode       FilterMode

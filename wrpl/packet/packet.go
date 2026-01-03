@@ -18,7 +18,9 @@
 
 package packet
 
-import "time"
+import (
+	"time"
+)
 
 type Packet struct {
 	// Seq is synthetic incremental packet identifier for tracking
@@ -60,4 +62,14 @@ func (pk *Packet) Copy() *Packet {
 	}
 	copy(pk2.PacketPayload, pk.PacketPayload)
 	return &pk2
+}
+
+type ParsedPacketStream struct {
+	Name    string
+	Packets []ParsedPacket
+}
+
+type PacketStreamProvider interface {
+	GetPacketStreams() []ParsedPacketStream
+	Name() string
 }

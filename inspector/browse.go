@@ -20,7 +20,6 @@ package inspector
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -52,6 +51,8 @@ type sessionDiscoveryData struct {
 	showErr   bool
 	prevErr   error
 	currErr   error
+
+	downloader downloaderData
 }
 
 func (ui *UI) showBrowseTab() {
@@ -61,6 +62,11 @@ func (ui *UI) showBrowseTab() {
 		ui.discovery.currErr = ui.discoverSessions()
 	}
 
+	ds := ui.discovery.downloader.getStatus()
+	if ds != "" {
+		imgui.TextUnformatted("Downloader: " + ds)
+	}
+
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Open replay:")
 	imgui.SameLine()
@@ -68,13 +74,11 @@ func (ui *UI) showBrowseTab() {
 	imgui.InputTextWithHint("##downloadid", "", &ui.discovery.input, 0, imui.ImEmptyInputCallback)
 	imgui.SameLine()
 	if imgui.Button("Download from hex sid") {
-		// ui.discovery.InputErr = fetchServerReplay(ui.discovery.Input)
-		ui.discovery.currErr = errors.ErrUnsupported
+		ui.discovery.currErr = ui.discovery.downloader.downloadStart(ui.discovery.input)
 	}
 	imgui.SameLine()
 	if imgui.Button("Open downloaded sid") {
-		// ui.discovery.err = openSegmentedReplayFolder(filepath.Join("fetchedReplays", ui.discovery.Input))
-		ui.discovery.currErr = errors.ErrUnsupported
+		ui.discovery.currErr = ui.loadReplayMultipartDir(filepath.Join("fetchedReplays", ui.discovery.input))
 	}
 	imgui.SameLine()
 	if imgui.Button("Open single file") {
@@ -104,14 +108,12 @@ func (ui *UI) showBrowseTab() {
 					if ui.discovery.foundTree[li][si][0].wrplHeader.IsServer() {
 						imgui.SameLine()
 						if imgui.SmallButton("parse server replays" + "##" + strconv.Itoa(si)) {
-							// openSegmentedReplayFolder(filepath.Dir(ui.discovery.FoundTree[li][si][0].wrplPath))
-							ui.discovery.currErr = errors.ErrUnsupported
+							ui.discovery.currErr = ui.loadReplayMultipartDir(filepath.Dir(ui.discovery.foundTree[li][si][0].wrplPath))
 						}
 					} else {
 						imgui.SameLine()
 						if imgui.SmallButton("download server replay" + "##" + strconv.Itoa(si)) {
-							// fetchServerReplay(ui.discovery.FoundTree[li][si][0].sessionID)
-							ui.discovery.currErr = errors.ErrUnsupported
+							ui.discovery.currErr = ui.discovery.downloader.downloadStart(ui.discovery.foundTree[li][si][0].sessionID)
 						}
 					}
 					imgui.SameLine()

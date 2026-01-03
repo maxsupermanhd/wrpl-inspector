@@ -22,6 +22,8 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
@@ -78,6 +80,32 @@ func (ui *UI) loadReplayFromPath(p string) error {
 		return err
 	}
 	rpl, err := wrpl.OpenReplay(bytes.NewReader(replayBytes), true, true, true)
+	if err != nil {
+		return err
+	}
+	return ui.loadReplay(rpl)
+}
+
+func (ui *UI) loadReplayMultipartDir(dirPath string) error {
+	dirEntries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return err
+	}
+	parts := [][]byte{}
+	for _, v := range dirEntries {
+		if v.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(v.Name(), ".wrpl") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dirPath, v.Name()))
+		if err != nil {
+			return err
+		}
+		parts = append(parts, b)
+	}
+	rpl, err := wrpl.OpenPartedReplay(parts)
 	if err != nil {
 		return err
 	}

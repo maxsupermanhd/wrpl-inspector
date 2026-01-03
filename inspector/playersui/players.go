@@ -48,7 +48,7 @@ func (tab *PlayersUI) Init() {
 
 func (tab *PlayersUI) Run() {
 	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
-	if imgui.BeginTableV("playersTable", 7, tableFlags, imgui.Vec2{}, 0) {
+	if imgui.BeginTableV("playersTable", 7, tableFlags, imgui.ContentRegionAvail(), 0) {
 		imgui.TableSetupColumn("n")
 		imgui.TableSetupColumn("nx")
 		imgui.TableSetupColumn("name")

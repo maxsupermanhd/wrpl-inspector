@@ -1,10 +1,5 @@
 .timetracker
-.vscode
 logs/
 replays*
 cache*
-wrpl-inspector
 fetchedReplays
-out.*
-tools/_*
-assets
