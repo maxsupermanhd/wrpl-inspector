@@ -34,7 +34,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/wrpl-inspector/inspector/imui"
 	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
-	"github.com/rs/zerolog/log"
 )
 
 type PacketStreamView struct {
@@ -122,8 +121,7 @@ func (view *PacketStreamView) Run() {
 	}
 	imgui.SameLine()
 	if imgui.Button("json") {
-		buf, err := json.MarshalIndent(pk, "", "\t")
-		log.Err(err).Msg("copy packet json")
+		buf, _ := json.MarshalIndent(pk, "", "\t")
 		imgui.SetClipboardText(string(buf))
 	}
 	imgui.SameLine()
