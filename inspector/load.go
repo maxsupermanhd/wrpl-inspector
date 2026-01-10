@@ -39,6 +39,13 @@ type LoadedReplay struct {
 	Tabs     []Tab
 }
 
+func (rpl *LoadedReplay) GlobalStreamProvider() packet.PacketStreamProvider {
+	return packet.NewStreamsProvider("Loaded replay", []packet.ParsedPacketStream{{
+		Name:    "Replay packets",
+		Packets: rpl.Packets,
+	}})
+}
+
 func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 	defer r.Close()
 	var err error

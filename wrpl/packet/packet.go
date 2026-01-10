@@ -73,3 +73,23 @@ type PacketStreamProvider interface {
 	GetPacketStreams() []ParsedPacketStream
 	Name() string
 }
+
+type StreamsProvider struct {
+	name    string
+	streams []ParsedPacketStream
+}
+
+func (sp StreamsProvider) Name() string {
+	return sp.name
+}
+
+func (sp StreamsProvider) GetPacketStreams() []ParsedPacketStream {
+	return sp.streams
+}
+
+func NewStreamsProvider(name string, streams []ParsedPacketStream) StreamsProvider {
+	return StreamsProvider{
+		name:    name,
+		streams: streams,
+	}
+}

@@ -45,32 +45,22 @@ func (tab *PacketsTab) Name() string {
 }
 
 func (tab *PacketsTab) Init() {
-	tab.streamNames = []string{"Replay packets"}
-	tab.streams = [][]packet.ParsedPacket{
-		tab.rpl.Packets,
-	}
-	for _, v := range tab.StreamProviders {
-		for _, s := range v.GetPacketStreams() {
-			tab.streamNames = append(tab.streamNames, v.Name()+": "+s.Name)
-			tab.streams = append(tab.streams, s.Packets)
-		}
-	}
+	tab.s = inspector.NewPacketStreamSelector(append([]packet.PacketStreamProvider{tab.rpl.GlobalStreamProvider()}, tab.StreamProviders...)...)
 }
 
 type PacketsTab struct {
 	rpl *inspector.LoadedReplay
 
-	streamSelected      int32
-	streamNames         []string
-	streamNamesMaxWidth float32
-	streams             [][]packet.ParsedPacket
-	StreamProviders     []packet.PacketStreamProvider
+	s               *inspector.PacketStreamSelector
+	StreamProviders []packet.PacketStreamProvider
 
 	FilterInput      FilterInput
 	FilterMode       FilterMode
 	FilterConstraint string
 	FilterType       int32
 	FilterTypeEnable bool
+	FilterHideParsed bool
+	FilterParserName string
 	filterNeeded     bool
 	filterError      error
 	filterTook       time.Duration
@@ -83,24 +73,20 @@ func (tab *PacketsTab) Run() {
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted("Inspecting")
 	imgui.SameLine()
-	if tab.streamNamesMaxWidth == 0 {
-		for _, v := range tab.streamNames {
-			tab.streamNamesMaxWidth = max(tab.streamNamesMaxWidth, imgui.CalcTextSize(v).X)
-		}
-	}
-	imgui.SetNextItemWidth(tab.streamNamesMaxWidth + 30)
-	imui.FlagUpdate(&tab.filterNeeded, imgui.ComboStrarr("##searching", &tab.streamSelected, tab.streamNames, int32(len(tab.streamNames))))
+	imui.FlagUpdate(&tab.filterNeeded, tab.s.Show())
 	imgui.SameLine()
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted(fmt.Sprintf("Total: %d Showing: %d (%.2f%%) (filtered in %s)",
-		len(tab.streams[tab.streamSelected]),
+		len(tab.s.Stream()),
 		len(tab.view.stream),
-		(float64(len(tab.view.stream))/float64(len(tab.streams[tab.streamSelected])))*100,
+		(float64(len(tab.view.stream))/float64(len(tab.s.Stream())))*100,
 		tab.filterTook.Round(time.Millisecond).String()))
 
 	imui.FlagUpdate(&tab.filterNeeded, imui.ImAutoCombo("Input", &tab.FilterInput))
+
 	imgui.SameLine()
 	imui.FlagUpdate(&tab.filterNeeded, imui.ImAutoCombo("Mode", &tab.FilterMode))
+
 	imgui.SameLine()
 	imgui.TextUnformatted("Type")
 	imgui.SameLine()
@@ -108,6 +94,20 @@ func (tab *PacketsTab) Run() {
 	imgui.SameLine()
 	imgui.SetNextItemWidth(100)
 	imui.FlagUpdate(&tab.filterNeeded, imgui.InputInt("##typeValue", &tab.FilterType))
+
+	imgui.SameLine()
+	imgui.TextUnformatted("Hide parsed")
+	imgui.SameLine()
+	imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("##hideParsed", &tab.FilterHideParsed))
+
+	imgui.SameLine()
+	imgui.TextUnformatted("Parser")
+	imgui.SameLine()
+	imgui.SetNextItemWidth(100)
+	imui.FlagUpdate(&tab.filterNeeded, imgui.InputTextWithHint("##filterParser", "", &tab.FilterParserName, 0, func(data imgui.InputTextCallbackData) int {
+		tab.filterNeeded = true
+		return 0
+	}))
 
 	imui.FlagUpdate(&tab.filterNeeded, imgui.InputTextWithHint("##filterConstraint", "^025858f0", &tab.FilterConstraint, 0, func(data imgui.InputTextCallbackData) int {
 		tab.filterNeeded = true
@@ -178,23 +178,34 @@ func (tab *PacketsTab) filter() error {
 	}
 
 	tab.view.stream = tab.view.stream[:0]
-	if tab.FilterTypeEnable {
-		for _, pk := range tab.streams[tab.streamSelected] {
+
+	for _, pk := range tab.s.Stream() {
+		if tab.FilterTypeEnable {
 			if pk.PacketType != byte(tab.FilterType) {
 				continue
 			}
-			if !filterMatcherFn(filterInputFn(pk)) {
+		}
+		if tab.FilterHideParsed {
+			if len(pk.ParsersResults) > 0 {
 				continue
 			}
-			tab.view.stream = append(tab.view.stream, pk)
 		}
-	} else {
-		for _, pk := range tab.streams[tab.streamSelected] {
-			if !filterMatcherFn(filterInputFn(pk)) {
+		if tab.FilterParserName != "" {
+			found := false
+			for _, p := range pk.ParsersResults {
+				if p.Parser == tab.FilterParserName {
+					found = true
+					break
+				}
+			}
+			if !found {
 				continue
 			}
-			tab.view.stream = append(tab.view.stream, pk)
 		}
+		if !filterMatcherFn(filterInputFn(pk)) {
+			continue
+		}
+		tab.view.stream = append(tab.view.stream, pk)
 	}
 
 	return nil
