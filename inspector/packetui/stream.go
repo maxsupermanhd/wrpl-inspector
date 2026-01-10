@@ -93,6 +93,8 @@ func (view *PacketStreamView) Run() {
 	view.seq = pk.Seq
 	imgui.SameLine()
 	imgui.TextUnformatted(fmt.Sprintf("Seq: %d", view.seq))
+	imgui.SameLine()
+	imgui.TextUnformatted(fmt.Sprintf("(%0.2f%%)", 100*float64(view.idx)/float64(len(view.stream))))
 
 	if view.RawTime {
 		imui.ImTextParam("Timestamp:", strconv.Itoa(int(pk.CurrentTime)))
@@ -311,9 +313,15 @@ func (view *PacketStreamView) Run() {
 	}
 
 	if doIdxScroll {
-		wh := imgui.CurrentIO().MouseWheel()
-		view.idx -= int(math.Round(float64(wh)))
-		view.idx = max(0, min(len(view.stream)-1, view.idx))
+		io := imgui.CurrentIO()
+		if !io.KeyShift() {
+			if io.KeyCtrl() {
+				view.idx -= 100 * int(math.Round(float64(io.MouseWheel())))
+			} else {
+				view.idx -= int(math.Round(float64(io.MouseWheel())))
+			}
+			view.idx = max(0, min(len(view.stream)-1, view.idx))
+		}
 	}
 }
 
