@@ -37,64 +37,65 @@ import (
 )
 
 type PacketStreamView struct {
-	viewType ViewType
-	idx      int
-	seq      uint64
-	stream   []packet.ParsedPacket
+	ViewType ViewType
+	Idx      int
+	Seq      uint64
+	// stream can be swapped in place
+	Stream []packet.ParsedPacket
 
 	RawTime    bool
 	ShowParsed bool
 }
 
 func (view *PacketStreamView) UpdateIndex() {
-	if len(view.stream) == 0 {
+	if len(view.Stream) == 0 {
 		return
 	}
-	if view.idx < 0 || view.idx >= len(view.stream) {
-		view.idx = 0
+	if view.Idx < 0 || view.Idx >= len(view.Stream) {
+		view.Idx = 0
 	}
-	if view.stream[view.idx].Seq == view.seq {
+	if view.Stream[view.Idx].Seq == view.Seq {
 		return
 	}
-	view.idx = 0
-	for view.idx = 0; view.idx < len(view.stream); view.idx++ {
-		if view.stream[view.idx].Seq >= view.seq {
-			view.seq = view.stream[view.idx].Seq
+	view.Idx = 0
+	for view.Idx = 0; view.Idx < len(view.Stream); view.Idx++ {
+		if view.Stream[view.Idx].Seq >= view.Seq {
+			view.Seq = view.Stream[view.Idx].Seq
 			break
 		}
 	}
 }
 
 func (view *PacketStreamView) Run() {
-	if len(view.stream) == 0 {
+	if len(view.Stream) == 0 {
 		imgui.TextUnformatted("no packets to show")
 		return
 	}
 
-	imui.ImAutoCombo("View", &view.viewType)
+	imui.ImAutoCombo("View", &view.ViewType)
 
 	imgui.SameLine()
 	imgui.TextUnformatted("Packet")
 	imgui.SameLine()
-	idx := int32(view.idx)
+	idx := int32(view.Idx)
 	imgui.SetNextItemWidth(100)
 	imgui.InputInt("##packetIdx", &idx)
 	doIdxScroll := imgui.IsItemHovered()
-	view.idx = int(idx)
-	if view.idx < 0 || view.idx >= len(view.stream) {
-		view.idx = 0
+	view.Idx = int(idx)
+	if view.Idx < 0 || view.Idx >= len(view.Stream) {
+		view.Idx = 0
 	}
 	imgui.SameLine()
 	imgui.TextUnformatted("Show parsed")
 	imgui.SameLine()
 	imgui.Checkbox("##showParsed", &view.ShowParsed)
 
-	pk := view.stream[view.idx]
-	view.seq = pk.Seq
+	pk := view.Stream[view.Idx]
+	view.Seq = pk.Seq
 	imgui.SameLine()
-	imgui.TextUnformatted(fmt.Sprintf("Seq: %d", view.seq))
+	imgui.TextUnformatted(fmt.Sprintf("Seq: %d", view.Seq))
 	imgui.SameLine()
-	imgui.TextUnformatted(fmt.Sprintf("(%0.2f%%)", 100*float64(view.idx)/float64(len(view.stream))))
+	imgui.TextUnformatted(fmt.Sprintf("(%0.2f%%)", 100*float64(view.Idx)/float64(len(view.Stream))))
 
 	if view.RawTime {
 		imui.ImTextParam("Timestamp:", strconv.Itoa(int(pk.CurrentTime)))
@@ -147,9 +148,9 @@ func (view *PacketStreamView) Run() {
 		avail.X *= 0.5
 	}
 	imgui.BeginChildStrV("contents view", avail, 0, 0)
-	switch view.viewType {
+	switch view.ViewType {
 	case ViewTypeHexdump:
-		d := hex.Dump(view.stream[view.idx].PacketPayload)
+		d := hex.Dump(view.Stream[view.Idx].PacketPayload)
 		imgui.InputTextMultiline("##hexview", &d, imgui.ContentRegionAvail(), 0, imui.ImEmptyInputCallback)
 	case ViewTypeContextPlain:
 		fallthrough
@@ -158,7 +159,7 @@ func (view *PacketStreamView) Run() {
 	case ViewTypeContextHexPlain:
 		numLinesInRow := 1
 		contextSize := 20
-		if view.viewType == ViewTypeContextHexPlain {
+		if view.ViewType == ViewTypeContextHexPlain {
 			contextSize = 10
 			numLinesInRow = 2
 		}
@@ -172,7 +173,7 @@ func (view *PacketStreamView) Run() {
 			imgui.TableSetupColumn("content")
 			imgui.TableHeadersRow()
 			for offset := range contextSize*2 + 1 {
-				i := view.idx + offset - contextSize
+				i := view.Idx + offset - contextSize
 				imgui.TableNextRow()
 				if offset == contextSize {
 					imgui.TableSetBgColor(imgui.TableBgTargetRowBg0, 0x99999900)
@@ -183,8 +184,8 @@ func (view *PacketStreamView) Run() {
 				} else {
 					imgui.TextUnformatted(fmt.Sprintf("%- 7d", i))
 				}
-				if inRange(view.stream, i) {
-					pk := view.stream[i]
+				if inRange(view.Stream, i) {
+					pk := view.Stream[i]
 					imgui.TableNextColumn()
 					imgui.TextUnformatted(fmt.Sprintf("%- 7d", pk.Seq))
 					imgui.TableNextColumn()
@@ -197,13 +198,13 @@ func (view *PacketStreamView) Run() {
 						}
 					}
 					imgui.TableNextColumn()
-					if inRange(view.stream, i-1) {
+					if inRange(view.Stream, i-1) {
 						if !view.RawTime {
-							imgui.TextUnformatted((pk.Time() - view.stream[i-1].Time()).String())
+							imgui.TextUnformatted((pk.Time() - view.Stream[i-1].Time()).String())
 						} else {
-							imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime) - int(view.stream[i-1].CurrentTime)))
+							imgui.TextUnformatted(strconv.Itoa(int(pk.CurrentTime) - int(view.Stream[i-1].CurrentTime)))
 							if numLinesInRow > 1 {
-								imgui.TextUnformatted((pk.Time() - view.stream[i-1].Time()).String())
+								imgui.TextUnformatted((pk.Time() - view.Stream[i-1].Time()).String())
 							}
 						}
 					} else {
@@ -216,12 +217,12 @@ func (view *PacketStreamView) Run() {
 					if len(payload) > 512 {
 						payload = payload[:512]
 					}
-					switch view.viewType {
+					switch view.ViewType {
 					case ViewTypeContextHex:
-						if inRange(view.stream, i-1) {
+						if inRange(view.Stream, i-1) {
 							dl := imgui.WindowDrawList()
 							rectSize := imgui.CalcTextSize("00")
-							payloadPrev := view.stream[i-1].PacketPayload
+							payloadPrev := view.Stream[i-1].PacketPayload
 							var byteNum int
 							for byteNum = range len(payload) {
 								byteStr := fmt.Sprintf("%02x", payload[byteNum])
@@ -259,7 +260,7 @@ func (view *PacketStreamView) Run() {
 					imgui.TableNextColumn()
 					imgui.TextUnformatted("")
 					imgui.TableNextColumn()
-					switch view.viewType {
+					switch view.ViewType {
 					case ViewTypeContextHex:
 						imgui.TextUnformatted("")
 					case ViewTypeContextPlain:
@@ -277,13 +278,13 @@ func (view *PacketStreamView) Run() {
 		plX := []float32{}
 		plY := []float32{}
 		prevTime := -1
-		for i := range view.stream {
-			if prevTime == int(view.stream[i].CurrentTime) {
+		for i := range view.Stream {
+			if prevTime == int(view.Stream[i].CurrentTime) {
 				plY[len(plY)-1]++
 			} else {
-				plX = append(plX, float32(view.stream[i].CurrentTime))
+				plX = append(plX, float32(view.Stream[i].CurrentTime))
 				plY = append(plY, float32(1))
-				prevTime = int(view.stream[i].CurrentTime)
+				prevTime = int(view.Stream[i].CurrentTime)
 			}
 		}
 		if implot.BeginPlot("##da plot search") {
@@ -293,9 +294,9 @@ func (view *PacketStreamView) Run() {
 	case 5:
 		plX := []float32{}
 		plY := []float32{}
-		for i := range view.stream {
-			plX = append(plX, float32(view.stream[i].CurrentTime))
-			plY = append(plY, float32(len(view.stream[i].PacketPayload)))
+		for i := range view.Stream {
+			plX = append(plX, float32(view.Stream[i].CurrentTime))
+			plY = append(plY, float32(len(view.Stream[i].PacketPayload)))
 		}
 		if implot.BeginPlot("##da plot search") {
 			implot.PlotBarsFloatPtrFloatPtr("val", &plX[0], &plY[0], int32(len(plX)), 1.0)
@@ -316,11 +317,11 @@ func (view *PacketStreamView) Run() {
 		io := imgui.CurrentIO()
 		if !io.KeyShift() {
 			if io.KeyCtrl() {
-				view.idx -= 100 * int(math.Round(float64(io.MouseWheel())))
+				view.Idx -= 100 * int(math.Round(float64(io.MouseWheel())))
 			} else {
-				view.idx -= int(math.Round(float64(io.MouseWheel())))
+				view.Idx -= int(math.Round(float64(io.MouseWheel())))
 			}
-			view.idx = max(0, min(len(view.stream)-1, view.idx))
+			view.Idx = max(0, min(len(view.Stream)-1, view.Idx))
 		}
 	}
 }

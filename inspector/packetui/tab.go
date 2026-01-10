@@ -78,8 +78,8 @@ func (tab *PacketsTab) Run() {
 	imgui.AlignTextToFramePadding()
 	imgui.TextUnformatted(fmt.Sprintf("Total: %d Showing: %d (%.2f%%) (filtered in %s)",
 		len(tab.s.Stream()),
-		len(tab.view.stream),
-		(float64(len(tab.view.stream))/float64(len(tab.s.Stream())))*100,
+		len(tab.view.Stream),
+		(float64(len(tab.view.Stream))/float64(len(tab.s.Stream())))*100,
 		tab.filterTook.Round(time.Millisecond).String()))
 
 	imui.FlagUpdate(&tab.filterNeeded, imui.ImAutoCombo("Input", &tab.FilterInput))
@@ -177,7 +177,7 @@ func (tab *PacketsTab) filter() error {
 		}
 	}
 
-	tab.view.stream = tab.view.stream[:0]
+	tab.view.Stream = tab.view.Stream[:0]
 
 	for _, pk := range tab.s.Stream() {
 		if tab.FilterTypeEnable {
@@ -205,7 +205,7 @@ func (tab *PacketsTab) filter() error {
 		if !filterMatcherFn(filterInputFn(pk)) {
 			continue
 		}
-		tab.view.stream = append(tab.view.stream, pk)
+		tab.view.Stream = append(tab.view.Stream, pk)
 	}
 
 	return nil
