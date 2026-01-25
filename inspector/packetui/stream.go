@@ -43,8 +43,8 @@ type PacketStreamView struct {
 	// stream can be swapped in place
 	Stream []packet.ParsedPacket
 
-	RawTime    bool
-	ShowParsed bool
+	RawTime         bool
+	ShowParseResult bool
 }
 
 func (view *PacketStreamView) UpdateIndex() {
@@ -86,9 +86,9 @@ func (view *PacketStreamView) Run() {
 		view.Idx = 0
 	}
 	imgui.SameLine()
-	imgui.TextUnformatted("Show parsed")
+	imgui.TextUnformatted("Show parse result")
 	imgui.SameLine()
-	imgui.Checkbox("##showParsed", &view.ShowParsed)
+	imgui.Checkbox("##showParseResult", &view.ShowParseResult)
 
 	pk := view.Stream[view.Idx]
 	view.Seq = pk.Seq
@@ -144,7 +144,7 @@ func (view *PacketStreamView) Run() {
 	}
 
 	avail := imgui.ContentRegionAvail()
-	if view.ShowParsed {
+	if view.ShowParseResult {
 		avail.X *= 0.5
 	}
 	imgui.BeginChildStrV("contents view", avail, 0, 0)
@@ -305,7 +305,7 @@ func (view *PacketStreamView) Run() {
 	}
 	imgui.EndChild()
 
-	if view.ShowParsed {
+	if view.ShowParseResult {
 		imgui.SameLine()
 		imgui.BeginChildStrV("parsed view", avail, 0, 0)
 		parsedDump := spew.Sdump(pk.ParsersResults)

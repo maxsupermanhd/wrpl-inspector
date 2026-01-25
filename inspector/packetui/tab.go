@@ -54,16 +54,16 @@ type PacketsTab struct {
 	s               *inspector.PacketStreamSelector
 	StreamProviders []packet.PacketStreamProvider
 
-	FilterInput      FilterInput
-	FilterMode       FilterMode
-	FilterConstraint string
-	FilterType       int32
-	FilterTypeEnable bool
-	FilterHideParsed bool
-	FilterParserName string
-	filterNeeded     bool
-	filterError      error
-	filterTook       time.Duration
+	FilterInput         FilterInput
+	FilterMode          FilterMode
+	FilterConstraint    string
+	FilterType          int32
+	FilterTypeEnable    bool
+	FilterParserResults FilterParserResults
+	FilterParserName    string
+	filterNeeded        bool
+	filterError         error
+	filterTook          time.Duration
 
 	view PacketStreamView
 }
@@ -96,9 +96,7 @@ func (tab *PacketsTab) Run() {
 	imui.FlagUpdate(&tab.filterNeeded, imgui.InputInt("##typeValue", &tab.FilterType))
 
 	imgui.SameLine()
-	imgui.TextUnformatted("Hide parsed")
-	imgui.SameLine()
-	imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("##hideParsed", &tab.FilterHideParsed))
+	imui.FlagUpdate(&tab.filterNeeded, imui.ImAutoCombo("Parser result", &tab.FilterParserResults))
 
 	imgui.SameLine()
 	imgui.TextUnformatted("Parser")
@@ -124,6 +122,15 @@ func (tab *PacketsTab) Run() {
 
 	tab.view.Run()
 }
+
+//go:generate stringer -type FilterParserResults
+type FilterParserResults int
+
+const (
+	FilterParserResultsIgnore FilterParserResults = iota
+	FilterParserResultsOnlyWithErrors
+	FilterParserResultsOnlyWithResults
+)
 
 //go:generate stringer -type FilterMode
 type FilterMode int
@@ -185,8 +192,20 @@ func (tab *PacketsTab) filter() error {
 				continue
 			}
 		}
-		if tab.FilterHideParsed {
-			if len(pk.ParsersResults) > 0 {
+		switch tab.FilterParserResults {
+		case FilterParserResultsOnlyWithErrors:
+			found := false
+			for _, res := range pk.ParsersResults {
+				if res.Err != nil {
+					found = true
+					break
+				}
+			}
+			if found == false {
+				continue
+			}
+		case FilterParserResultsOnlyWithResults:
+			if len(pk.ParsersResults) == 0 {
 				continue
 			}
 		}
