@@ -23,8 +23,8 @@ import (
 	"strconv"
 
 	"github.com/AllenDang/cimgui-go/imgui"
-	"github.com/maxsupermanhd/wrpl-inspector/inspector"
-	packetslot "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/slot"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector"
+	packetslot "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/slot"
 )
 
 type PlayersUI struct {

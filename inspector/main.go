@@ -26,8 +26,8 @@ import (
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/AllenDang/cimgui-go/implot"
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
 	"github.com/rs/zerolog"
 )
 

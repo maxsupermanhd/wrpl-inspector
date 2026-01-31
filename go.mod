@@ -1,4 +1,4 @@
-module github.com/maxsupermanhd/wrpl-inspector
+module github.com/maxsupermanhd/wrpl-inspector/v2
 
 go 1.25.5
 

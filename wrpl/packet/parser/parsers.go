@@ -19,13 +19,13 @@
 package catalog
 
 import (
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
-	packetaward "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/award"
-	packetchat "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/chat"
-	packetecs "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/ecs"
-	packetkill "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/kill"
-	packetmovement "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/movement"
-	packetstub "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/stub"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
+	packetaward "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/award"
+	packetchat "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/chat"
+	packetecs "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/ecs"
+	packetkill "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/kill"
+	packetmovement "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/movement"
+	packetstub "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/stub"
 )
 
 var (

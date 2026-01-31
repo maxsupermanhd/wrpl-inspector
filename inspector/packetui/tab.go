@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
-	"github.com/maxsupermanhd/wrpl-inspector/inspector"
-	"github.com/maxsupermanhd/wrpl-inspector/inspector/imui"
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector/imui"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
 )
 
 func NewPacketsTab(rpl *inspector.LoadedReplay, additionalStreams ...packet.PacketStreamProvider) *PacketsTab {

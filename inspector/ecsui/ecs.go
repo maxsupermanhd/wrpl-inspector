@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	"github.com/AllenDang/cimgui-go/imgui"
-	"github.com/maxsupermanhd/wrpl-inspector/inspector"
-	packetecs "github.com/maxsupermanhd/wrpl-inspector/wrpl/packet/parser/ecs"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector"
+	packetecs "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/ecs"
 )
 
 type ECSUI struct {

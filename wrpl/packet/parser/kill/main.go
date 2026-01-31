@@ -21,8 +21,8 @@ package packetkill
 import (
 	"bytes"
 
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl/packet"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
 )
 
 type KillEntry struct {

@@ -30,8 +30,8 @@ import (
 	"strings"
 
 	"github.com/AllenDang/cimgui-go/imgui"
-	"github.com/maxsupermanhd/wrpl-inspector/inspector/imui"
-	"github.com/maxsupermanhd/wrpl-inspector/wrpl"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector/imui"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl"
 	"github.com/rs/zerolog/log"
 )
 
