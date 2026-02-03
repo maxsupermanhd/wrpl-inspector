@@ -67,21 +67,21 @@ reqLoop:
 		partBytes.Reset()
 		partFname := fmt.Sprintf("%04d.wrpl", partNum)
 		partUrl := "https://wt-replays-cdnnow.cdn.gaijin.net/" + sid + "/" + partFname
-		dd.setStatus("sent HTTP GET %q", partUrl)
+		dd.setStatus("working, %q: sent HTTP GET", partUrl)
 		resp, err := http.Get(partUrl)
 		if err != nil {
-			dd.setStatus("error sending HTTP GET %q: %s", partUrl, err.Error())
+			dd.setStatus("error, %q: sending HTTP GET: %s", partUrl, err.Error())
 			return
 		}
 		if resp.StatusCode == 404 {
 			if partNum == 0 {
-				dd.setStatus("snail says it does not have the session")
+				dd.setStatus("error, %q: snail says it does not have the session (got 404 on part 0)", partUrl)
 				return
 			}
-			dd.setStatus("reached 404, assuming end of session, downloader done")
+			dd.setStatus("done, downloaded %d parts and reached 404, assuming end of session", partNum)
 			return
 		} else if resp.StatusCode != 200 {
-			dd.setStatus("HTTP GET %q returned %s", partUrl, resp.Status)
+			dd.setStatus("error, %q: returned %s", partUrl, resp.Status)
 			return
 		}
 
@@ -99,27 +99,28 @@ reqLoop:
 						break
 					}
 				} else {
-					dd.setStatus("error downloading %q: %s", partUrl, err.Error())
+					dd.setStatus("error, %q: %s", partUrl, err.Error())
 					continue reqLoop
 				}
 			}
 			since := time.Since(lastProgressReport)
-			if since >= time.Second {
+			if since >= 250*time.Millisecond {
 				prgDownloaded := humanize.Bytes(uint64(partBytes.Len()))
 				currentLen := partBytes.Len()
 				prgSpeed := humanize.Bytes(uint64((float64(currentLen-lastReportLen) / since.Seconds())))
 				lastReportLen = currentLen
 				prgTaking := time.Since(timeStarted).Round(time.Second).String()
-				dd.setStatus("downloading %q: %s/%s (%s/s) (elapsed %s)\n", partUrl, prgDownloaded, prgTotal, prgSpeed, prgTaking)
+				dd.setStatus("working %q: %s/%s (%s/s) (elapsed %s)", partUrl, prgDownloaded, prgTotal, prgSpeed, prgTaking)
 				lastProgressReport = time.Now()
 			}
 		}
 
-		dd.setStatus("downloaded %q %s in %s\n", partUrl, humanize.Bytes(uint64(partBytes.Len())), time.Since(timeStarted).Round(time.Second))
+		dd.setStatus("saving, %q: downloaded %s in %s", partUrl, humanize.Bytes(uint64(partBytes.Len())), time.Since(timeStarted).Round(time.Second))
 
 		err = os.WriteFile(filepath.Join("fetchedReplays", sid, partFname), partBytes.Bytes(), 0644)
 		if err != nil {
 			dd.setStatus("error saving %q: %s", partUrl, err.Error())
+			return
 		}
 		partNum++
 	}
