@@ -126,6 +126,14 @@ func (bs *BitReader) ReadCompressed() (uint64, error) {
 	return v, nil
 }
 
+func (bs *BitReader) ReadBool() (bool, error) {
+	val, err := bs.ReadBits(1)
+	if err != nil {
+		return false, err
+	}
+	return val[0] == 1, nil
+}
+
 func (bs *BitReader) AlignToByteBoundary() {
 	bs.BitOffset += 8 - (((bs.BitOffset - 1) & 7) + 1)
 }
