@@ -39,7 +39,7 @@ type Tab interface {
 
 type UI struct {
 	log                 zerolog.Logger
-	imBackend           backend.Backend[glfwbackend.GLFWWindowFlags]
+	ImBackend           backend.Backend[glfwbackend.GLFWWindowFlags]
 	InitFont            []byte
 	InitWindowWidth     int
 	InitWindowHeight    int
@@ -60,17 +60,17 @@ type UI struct {
 
 func (ui *UI) Run(autoOpen ...*wrpl.ReplayReader) error {
 	var err error
-	ui.imBackend, err = backend.CreateBackend(glfwbackend.NewGLFWBackend())
+	ui.ImBackend, err = backend.CreateBackend(glfwbackend.NewGLFWBackend())
 	if err != nil {
 		return err
 	}
 
-	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsDecorated, 1)
-	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsTransparent, 0)
-	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsVisible, 1)
-	ui.imBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsResizable, 1)
+	ui.ImBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsDecorated, 1)
+	ui.ImBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsTransparent, 0)
+	ui.ImBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsVisible, 1)
+	ui.ImBackend.SetWindowFlags(glfwbackend.GLFWWindowFlagsResizable, 1)
 	for k, v := range ui.InitWindowFlags {
-		ui.imBackend.SetWindowFlags(k, v)
+		ui.ImBackend.SetWindowFlags(k, v)
 	}
 	if ui.InitWindowWidth == 0 {
 		ui.InitWindowWidth = 1300
@@ -78,11 +78,11 @@ func (ui *UI) Run(autoOpen ...*wrpl.ReplayReader) error {
 	if ui.InitWindowHeight == 0 {
 		ui.InitWindowHeight = 1000
 	}
-	ui.imBackend.CreateWindow("wrpl-inspector", ui.InitWindowWidth, ui.InitWindowHeight)
+	ui.ImBackend.CreateWindow("wrpl-inspector", ui.InitWindowWidth, ui.InitWindowHeight)
 	if ui.InitWindowTargetFPS == 0 {
 		ui.InitWindowTargetFPS = 60
 	}
-	ui.imBackend.SetTargetFPS(uint(ui.InitWindowTargetFPS))
+	ui.ImBackend.SetTargetFPS(uint(ui.InitWindowTargetFPS))
 	// imgui.CurrentIO().SetConfigViewportsNoAutoMerge(true)
 	imgui.CurrentIO().SetConfigFlags(imgui.CurrentIO().ConfigFlags() & ^imgui.ConfigFlagsViewportsEnable)
 	// ui.imBackend.SetDropCallback(func(p []string) {
@@ -110,7 +110,7 @@ func (ui *UI) Run(autoOpen ...*wrpl.ReplayReader) error {
 		}
 	}
 
-	ui.imBackend.Run(ui.loop)
+	ui.ImBackend.Run(ui.loop)
 
 	implot.DestroyContext()
 
