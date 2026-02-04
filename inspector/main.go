@@ -31,6 +31,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type ClosableTab interface {
+	Close()
+}
+
 type Tab interface {
 	Name() string
 	Init()
@@ -170,6 +174,12 @@ func (ui *UI) showMainWindow() {
 				imgui.EndTabItem()
 			}
 			if isOpen == false {
+				for _, tab := range v.Tabs {
+					cl, ok := tab.(ClosableTab)
+					if ok {
+						cl.Close()
+					}
+				}
 				ui.opened = append(ui.opened[:i], ui.opened[i+1:]...)
 			}
 		}
