@@ -94,7 +94,6 @@ func (ui *UI) showBrowseTab() {
 	}
 
 	if imgui.BeginChildStr("##found replays child") {
-
 		for li := range ui.discovery.foundTree {
 			imgui.PushIDInt(int32(li))
 			if imgui.TreeNodeStr("location " + ui.discovery.foundTree[li][0][0].location + "##" + strconv.Itoa(li)) {
@@ -139,9 +138,8 @@ func (ui *UI) showBrowseTab() {
 			}
 			imgui.PopID()
 		}
-
-		imgui.EndChild()
 	}
+	imgui.EndChild()
 
 	if ui.discovery.currErr != nil {
 		ui.discovery.prevErr = ui.discovery.currErr

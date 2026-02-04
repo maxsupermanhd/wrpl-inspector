@@ -122,34 +122,35 @@ func (be *ByteInterpreterTab) Run() {
 			}
 			implot.EndPlot()
 		}
-		if be.showTable && imgui.BeginChildStr("values table child") {
-			tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
-			if imgui.BeginTableV("values table", 4, tableFlags, imgui.Vec2{}, 0.0) {
-				imgui.TableSetupScrollFreeze(0, 1)
-				imgui.TableSetupColumn("X")
-				imgui.TableSetupColumn("Y")
-				imgui.TableSetupColumn("raw")
-				imgui.TableSetupColumn("packet")
-				imgui.TableHeadersRow()
-				clipper := imgui.NewListClipper()
-				clipper.Begin(int32(len(be.plotX)))
-				for clipper.Step() {
-					for i := clipper.DisplayStart(); i < clipper.DisplayEnd(); i++ {
-						imgui.TableNextRow()
-						imgui.TableNextColumn()
-						imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotX[i]))
-						imgui.TableNextColumn()
-						imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotY[i]))
-						imgui.TableNextColumn()
-						imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotRaw[i]))
-						imgui.TableNextColumn()
-						imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotRawFull[i]))
+		if be.showTable {
+			if imgui.BeginChildStr("values table child") {
+				tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
+				if imgui.BeginTableV("values table", 4, tableFlags, imgui.Vec2{}, 0.0) {
+					imgui.TableSetupScrollFreeze(0, 1)
+					imgui.TableSetupColumn("X")
+					imgui.TableSetupColumn("Y")
+					imgui.TableSetupColumn("raw")
+					imgui.TableSetupColumn("packet")
+					imgui.TableHeadersRow()
+					clipper := imgui.NewListClipper()
+					clipper.Begin(int32(len(be.plotX)))
+					for clipper.Step() {
+						for i := clipper.DisplayStart(); i < clipper.DisplayEnd(); i++ {
+							imgui.TableNextRow()
+							imgui.TableNextColumn()
+							imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotX[i]))
+							imgui.TableNextColumn()
+							imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotY[i]))
+							imgui.TableNextColumn()
+							imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotRaw[i]))
+							imgui.TableNextColumn()
+							imgui.TextUnformatted(fmt.Sprintf("%#v", be.plotRawFull[i]))
+						}
 					}
+					clipper.End()
+					imgui.EndTable()
 				}
-				clipper.End()
-				imgui.EndTable()
 			}
-
 			imgui.EndChild()
 		}
 	}
