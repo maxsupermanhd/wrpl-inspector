@@ -20,7 +20,6 @@ package inspector
 
 import (
 	"bytes"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,15 +58,7 @@ func (ui *UI) loadReplay(r *wrpl.ReplayReader) error {
 
 	loaded.Parsers, loaded.Tabs = ui.ProcessReplayFn(loaded)
 
-	// TODO: why can't I just pass raw r.PacketStream to packet stream reader?
-	// results in seemingly random errors
-	buf, err := io.ReadAll(r.PacketStream)
-	if err != nil {
-		return err
-	}
-	loaded.Packets, err = packet.ParsePackets(packet.NewPacketStreamReader(bytes.NewReader(buf)), loaded.Parsers)
-
-	// loaded.packets, err = packet.ParsePackets(packet.NewPacketStreamReader(r.PacketStream), parsers)
+	loaded.Packets, err = packet.ParsePackets(packet.NewPacketStreamReader(r.PacketStream), loaded.Parsers)
 	if err != nil {
 		return err
 	}

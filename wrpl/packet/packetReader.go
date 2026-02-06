@@ -60,7 +60,7 @@ again:
 
 	psr.Header[0] = 0
 	psr.Header[1] = 0
-	_, err = psr.R.Read(psr.Header)
+	_, err = io.ReadFull(psr.R, psr.Header)
 	if err != nil {
 		return false, fmt.Errorf("reading packet header: %w (packet size was %d)", err, packetSize)
 	}
