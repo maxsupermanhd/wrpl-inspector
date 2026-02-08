@@ -48,6 +48,14 @@ func (tab *PacketsTab) Init() {
 	tab.s = inspector.NewPacketStreamSelector(append([]packet.PacketStreamProvider{tab.rpl.GlobalStreamProvider()}, tab.StreamProviders...)...)
 }
 
+type FilterParserSettings struct {
+	ErrorsDoFilter  bool
+	ErrorsCsPresent bool
+	ResultDoFilter  bool
+	ResultCsPresent bool
+	Name            string
+}
+
 type PacketsTab struct {
 	rpl *inspector.LoadedReplay
 
@@ -59,8 +67,7 @@ type PacketsTab struct {
 	FilterConstraint    string
 	FilterType          int32
 	FilterTypeEnable    bool
-	FilterParserResults FilterParserResults
-	FilterParserName    string
+	FilterParserResults FilterParserSettings
 	filterNeeded        bool
 	filterError         error
 	filterTook          time.Duration
@@ -96,16 +103,29 @@ func (tab *PacketsTab) Run() {
 	imui.FlagUpdate(&tab.filterNeeded, imgui.InputInt("##typeValue", &tab.FilterType))
 
 	imgui.SameLine()
-	imui.FlagUpdate(&tab.filterNeeded, imui.ImAutoCombo("Parser result", &tab.FilterParserResults))
+	if imgui.Button("Filter by parser") {
+		imgui.OpenPopupStr("popupFilterParserSettings")
+	}
+	if imgui.BeginPopup("popupFilterParserSettings") {
+		imgui.AlignTextToFramePadding()
+		imgui.TextUnformatted("Parser name")
+		imgui.SameLine()
+		imgui.SetNextItemWidth(100)
+		imui.FlagUpdate(&tab.filterNeeded, imgui.InputTextWithHint("##filterParserName", "", &tab.FilterParserResults.Name, 0, func(data imgui.InputTextCallbackData) int {
+			tab.filterNeeded = true
+			return 0
+		}))
 
-	imgui.SameLine()
-	imgui.TextUnformatted("Parser")
-	imgui.SameLine()
-	imgui.SetNextItemWidth(100)
-	imui.FlagUpdate(&tab.filterNeeded, imgui.InputTextWithHint("##filterParser", "", &tab.FilterParserName, 0, func(data imgui.InputTextCallbackData) int {
-		tab.filterNeeded = true
-		return 0
-	}))
+		imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("Filter on error", &tab.FilterParserResults.ErrorsDoFilter))
+		if tab.FilterParserResults.ErrorsDoFilter {
+			imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("Error present", &tab.FilterParserResults.ErrorsCsPresent))
+		}
+		imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("Filter on results", &tab.FilterParserResults.ResultDoFilter))
+		if tab.FilterParserResults.ResultDoFilter {
+			imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("Result present", &tab.FilterParserResults.ResultCsPresent))
+		}
+		imgui.EndPopup()
+	}
 
 	imui.FlagUpdate(&tab.filterNeeded, imgui.InputTextWithHint("##filterConstraint", "^025858f0", &tab.FilterConstraint, 0, func(data imgui.InputTextCallbackData) int {
 		tab.filterNeeded = true
@@ -122,15 +142,6 @@ func (tab *PacketsTab) Run() {
 
 	tab.view.Run()
 }
-
-//go:generate stringer -type FilterParserResults
-type FilterParserResults int
-
-const (
-	FilterParserResultsIgnore FilterParserResults = iota
-	FilterParserResultsOnlyWithErrors
-	FilterParserResultsOnlyWithResults
-)
 
 //go:generate stringer -type FilterMode
 type FilterMode int
@@ -186,33 +197,48 @@ func (tab *PacketsTab) filter() error {
 
 	tab.view.Stream = tab.view.Stream[:0]
 
+filterLoop:
 	for _, pk := range tab.s.Stream() {
 		if tab.FilterTypeEnable {
 			if pk.PacketType != byte(tab.FilterType) {
 				continue
 			}
 		}
-		switch tab.FilterParserResults {
-		case FilterParserResultsOnlyWithErrors:
-			found := false
-			for _, res := range pk.ParsersResults {
-				if res.Err != nil {
-					found = true
-					break
+		if tab.FilterParserResults.ErrorsDoFilter {
+			if tab.FilterParserResults.ErrorsCsPresent {
+				found := false
+				for _, res := range pk.ParsersResults {
+					if res.Err != nil {
+						found = true
+						break
+					}
+				}
+				if found == false {
+					continue
+				}
+			} else {
+				for _, res := range pk.ParsersResults {
+					if res.Err != nil {
+						continue filterLoop
+					}
 				}
 			}
-			if found == false {
-				continue
-			}
-		case FilterParserResultsOnlyWithResults:
-			if len(pk.ParsersResults) == 0 {
-				continue
+		}
+		if tab.FilterParserResults.ResultDoFilter {
+			if tab.FilterParserResults.ResultCsPresent {
+				if len(pk.ParsersResults) == 0 {
+					continue
+				}
+			} else {
+				if len(pk.ParsersResults) != 0 {
+					continue
+				}
 			}
 		}
-		if tab.FilterParserName != "" {
+		if tab.FilterParserResults.Name != "" {
 			found := false
 			for _, p := range pk.ParsersResults {
-				if p.Parser == tab.FilterParserName {
+				if p.Parser == tab.FilterParserResults.Name {
 					found = true
 					break
 				}
