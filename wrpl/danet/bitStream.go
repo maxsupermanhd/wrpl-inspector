@@ -109,6 +109,21 @@ func (bs *BitReader) ReadLenStr() (string, error) {
 	return string(ret), err
 }
 
+// if dst is nil, it will panic
+func (bs *BitReader) ReadLenStrInto(dst *string) error {
+	l, err := bs.ReadByte()
+	if err != nil {
+		return err
+	}
+	ret := make([]byte, l)
+	_, err = bs.Read(ret)
+	if err != nil {
+		return err
+	}
+	*dst = string(ret)
+	return err
+}
+
 func (bs *BitReader) ReadCompressed() (uint64, error) {
 	v := uint64(0)
 	count := 0
@@ -126,12 +141,40 @@ func (bs *BitReader) ReadCompressed() (uint64, error) {
 	return v, nil
 }
 
+func (bs *BitReader) ReadCompressedInto(dst *uint64) error {
+	v := uint64(0)
+	count := 0
+	for {
+		a, err := bs.ReadBytes(1)
+		if err != nil {
+			return err
+		}
+		v |= uint64(a[0] & ^uint8(1<<7)) << (count * 7)
+		count += 1
+		if (a[0] & (1 << 7)) == 0 {
+			break
+		}
+	}
+	*dst = v
+	return nil
+}
+
 func (bs *BitReader) ReadBool() (bool, error) {
 	val, err := bs.ReadBits(1)
 	if err != nil {
 		return false, err
 	}
 	return val[0] == 1, nil
+}
+
+// if dst is nil, it will panic
+func (bs *BitReader) ReadBoolInto(dst *bool) error {
+	val, err := bs.ReadBits(1)
+	if err != nil {
+		return err
+	}
+	*dst = val[0] == 1
+	return nil
 }
 
 func (bs *BitReader) AlignToByteBoundary() {
