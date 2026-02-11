@@ -316,7 +316,7 @@ func (view *PacketStreamView) Run() {
 		imgui.SameLine()
 		if imgui.BeginChildStrV("parsed view", avail, 0, 0) {
 			parsedDump := spew.Sdump(pk.ParsersResults)
-			imgui.InputTextMultiline("##parsed", &parsedDump, imgui.ContentRegionAvail(), imgui.InputTextFlagsReadOnly, imui.ImEmptyInputCallback)
+			imgui.InputTextMultiline("##parsed", &parsedDump, imgui.ContentRegionAvail(), imgui.InputTextFlagsReadOnly|imgui.InputTextFlagsWordWrap, imui.ImEmptyInputCallback)
 		}
 		imgui.EndChild()
 	}
