@@ -69,8 +69,8 @@ func NewParserMatcher(parsers []PacketParser) *ParserMatcher {
 
 type ParserResult struct {
 	Parser string
-	Data   any
 	Err    error
+	Data   any
 }
 
 func (matcher *ParserMatcher) Match(pk *Packet) []ParserResult {
