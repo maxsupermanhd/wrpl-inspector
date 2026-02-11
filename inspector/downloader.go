@@ -73,12 +73,12 @@ reqLoop:
 			dd.setStatus("error, %q: sending HTTP GET: %s", partUrl, err.Error())
 			return
 		}
-		if resp.StatusCode == 404 {
+		if resp.StatusCode == 404 || resp.StatusCode == 403 {
 			if partNum == 0 {
 				dd.setStatus("error, %q: snail says it does not have the session (got 404 on part 0)", partUrl)
 				return
 			}
-			dd.setStatus("done, downloaded %d parts and reached 404, assuming end of session", partNum)
+			dd.setStatus("done, downloaded %d parts and reached %d, assuming end of session", partNum, resp.StatusCode)
 			return
 		} else if resp.StatusCode != 200 {
 			dd.setStatus("error, %q: returned %s", partUrl, resp.Status)
