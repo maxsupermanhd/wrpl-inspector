@@ -66,7 +66,7 @@ reqLoop:
 	for {
 		partBytes.Reset()
 		partFname := fmt.Sprintf("%04d.wrpl", partNum)
-		partUrl := "https://wt-replays-cdnnow.cdn.gaijin.net/" + sid + "/" + partFname
+		partUrl := "https://d2vzhl6vfxwasl.cloudfront.net/" + sid + "/" + partFname
 		dd.setStatus("working, %q: sent HTTP GET", partUrl)
 		resp, err := http.Get(partUrl)
 		if err != nil {
