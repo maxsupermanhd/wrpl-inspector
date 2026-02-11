@@ -11,14 +11,15 @@ func _() {
 	_ = x[ViewTypeContextHexPlain-0]
 	_ = x[ViewTypeContextHex-1]
 	_ = x[ViewTypeContextPlain-2]
-	_ = x[ViewTypeHexdump-3]
-	_ = x[ViewTypeAmountOverTime-4]
-	_ = x[ViewTypeLengthOverTime-5]
+	_ = x[ViewTypeContextBin-3]
+	_ = x[ViewTypeHexdump-4]
+	_ = x[ViewTypeAmountOverTime-5]
+	_ = x[ViewTypeLengthOverTime-6]
 }
 
-const _ViewType_name = "ViewTypeContextHexPlainViewTypeContextHexViewTypeContextPlainViewTypeHexdumpViewTypeAmountOverTimeViewTypeLengthOverTime"
+const _ViewType_name = "ViewTypeContextHexPlainViewTypeContextHexViewTypeContextPlainViewTypeContextBinViewTypeHexdumpViewTypeAmountOverTimeViewTypeLengthOverTime"
 
-var _ViewType_index = [...]uint8{0, 23, 41, 61, 76, 98, 120}
+var _ViewType_index = [...]uint8{0, 23, 41, 61, 79, 94, 116, 138}
 
 func (i ViewType) String() string {
 	if i < 0 || i >= ViewType(len(_ViewType_index)-1) {

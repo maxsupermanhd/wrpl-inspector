@@ -156,6 +156,8 @@ func (view *PacketStreamView) Run() {
 		fallthrough
 	case ViewTypeContextHex:
 		fallthrough
+	case ViewTypeContextBin:
+		fallthrough
 	case ViewTypeContextHexPlain:
 		numLinesInRow := 1
 		contextSize := 20
@@ -240,6 +242,8 @@ func (view *PacketStreamView) Run() {
 								imgui.SameLine()
 							}
 						}
+					case ViewTypeContextBin:
+						imgui.TextUnformatted(bytesToBits(payload))
 					case ViewTypeContextPlain:
 						imgui.TextUnformatted(bytesToChar(payload))
 					default:
@@ -261,6 +265,8 @@ func (view *PacketStreamView) Run() {
 					imgui.TextUnformatted("")
 					imgui.TableNextColumn()
 					switch view.ViewType {
+					case ViewTypeContextBin:
+						imgui.TextUnformatted("")
 					case ViewTypeContextHex:
 						imgui.TextUnformatted("")
 					case ViewTypeContextPlain:
@@ -274,7 +280,7 @@ func (view *PacketStreamView) Run() {
 			imgui.EndTable()
 			doIdxScroll = doIdxScroll || imgui.IsItemHovered()
 		}
-	case 4:
+	case ViewTypeAmountOverTime:
 		plX := []float32{}
 		plY := []float32{}
 		prevTime := -1
@@ -291,7 +297,7 @@ func (view *PacketStreamView) Run() {
 			implot.PlotBarsFloatPtrFloatPtr("val", &plX[0], &plY[0], int32(len(plX)), 1.0)
 			implot.EndPlot()
 		}
-	case 5:
+	case ViewTypeLengthOverTime:
 		plX := []float32{}
 		plY := []float32{}
 		for i := range view.Stream {
@@ -334,6 +340,7 @@ const (
 	ViewTypeContextHexPlain ViewType = iota
 	ViewTypeContextHex
 	ViewTypeContextPlain
+	ViewTypeContextBin
 	ViewTypeHexdump
 	ViewTypeAmountOverTime
 	ViewTypeLengthOverTime
@@ -351,6 +358,14 @@ func bytesToChar(s []byte) (ret string) {
 		} else {
 			sb.WriteByte(b)
 		}
+	}
+	return sb.String()
+}
+
+func bytesToBits(s []byte) (ret string) {
+	sb := strings.Builder{}
+	for _, b := range s {
+		sb.WriteString(fmt.Sprintf("%08b ", b))
 	}
 	return sb.String()
 }
