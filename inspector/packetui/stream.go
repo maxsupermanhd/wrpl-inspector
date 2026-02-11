@@ -146,6 +146,7 @@ func (view *PacketStreamView) Run() {
 	avail := imgui.ContentRegionAvail()
 	if view.ShowParseResult {
 		avail.X *= 0.5
+		avail.X -= imgui.CurrentStyle().FramePadding().X
 	}
 	imgui.BeginChildStrV("contents view", avail, 0, 0)
 	switch view.ViewType {
