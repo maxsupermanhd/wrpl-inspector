@@ -58,6 +58,10 @@ type UI struct {
 
 	ProcessReplayFn func(lrpl *LoadedReplay) ([]packet.PacketParser, []Tab)
 
+	DownloaderUrlFormat func(sid string, part int) string
+
+	Downloader DownloaderData
+
 	nextOpenID int
 	opened     []*LoadedReplay
 }

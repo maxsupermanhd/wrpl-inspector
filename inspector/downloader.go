@@ -14,19 +14,20 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-type downloaderData struct {
-	lock    sync.Mutex
-	running bool
-	status  string
+type DownloaderData struct {
+	lock                sync.Mutex
+	running             bool
+	status              string
+	DownloaderUrlFormat func(sid string, part int) string
 }
 
-func (dd *downloaderData) isDownloading() bool {
+func (dd *DownloaderData) isDownloading() bool {
 	dd.lock.Lock()
 	defer dd.lock.Unlock()
 	return dd.running
 }
 
-func (dd *downloaderData) downloadStart(sid string) error {
+func (dd *DownloaderData) downloadStart(sid string) error {
 	err := os.MkdirAll(filepath.Join("fetchedReplays", sid), 0755)
 	if err != nil {
 		return err
@@ -47,26 +48,31 @@ func (dd *downloaderData) downloadStart(sid string) error {
 	return nil
 }
 
-func (dd *downloaderData) setStatus(f string, args ...any) {
+func (dd *DownloaderData) setStatus(f string, args ...any) {
 	dd.lock.Lock()
 	dd.status = fmt.Sprintf(f, args...)
 	dd.lock.Unlock()
 }
 
-func (dd *downloaderData) getStatus() string {
+func (dd *DownloaderData) getStatus() string {
 	dd.lock.Lock()
 	defer dd.lock.Unlock()
 	return dd.status
 }
 
-func (dd *downloaderData) downloadRoutine(sid string) {
+func (dd *DownloaderData) downloadRoutine(sid string) {
 	partNum := 0
 	partBytes := &bytes.Buffer{}
 reqLoop:
 	for {
 		partBytes.Reset()
 		partFname := fmt.Sprintf("%04d.wrpl", partNum)
-		partUrl := "https://d2vzhl6vfxwasl.cloudfront.net/" + sid + "/" + partFname
+		var partUrl string
+		if dd.DownloaderUrlFormat == nil {
+			partUrl = "https://wt-game-replays.warthunder.com/" + sid + "/" + partFname
+		} else {
+			partUrl = dd.DownloaderUrlFormat(sid, partNum)
+		}
 		dd.setStatus("working, %q: sent HTTP GET", partUrl)
 		resp, err := http.Get(partUrl)
 		if err != nil {

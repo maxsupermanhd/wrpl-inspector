@@ -51,8 +51,6 @@ type sessionDiscoveryData struct {
 	showErr   bool
 	prevErr   error
 	currErr   error
-
-	downloader downloaderData
 }
 
 func (ui *UI) showBrowseTab() {
@@ -62,7 +60,7 @@ func (ui *UI) showBrowseTab() {
 		ui.discovery.currErr = ui.discoverSessions()
 	}
 
-	ds := ui.discovery.downloader.getStatus()
+	ds := ui.Downloader.getStatus()
 	if ds != "" {
 		imgui.TextUnformatted("Downloader: " + ds)
 	}
@@ -74,7 +72,7 @@ func (ui *UI) showBrowseTab() {
 	imgui.InputTextWithHint("##downloadid", "", &ui.discovery.input, 0, imui.ImEmptyInputCallback)
 	imgui.SameLine()
 	if imgui.Button("Download from hex sid") {
-		ui.discovery.currErr = ui.discovery.downloader.downloadStart(ui.discovery.input)
+		ui.discovery.currErr = ui.Downloader.downloadStart(ui.discovery.input)
 	}
 	imgui.SameLine()
 	if imgui.Button("Open downloaded sid") {
@@ -112,7 +110,7 @@ func (ui *UI) showBrowseTab() {
 					} else {
 						imgui.SameLine()
 						if imgui.SmallButton("download server replay" + "##" + strconv.Itoa(si)) {
-							ui.discovery.currErr = ui.discovery.downloader.downloadStart(ui.discovery.foundTree[li][si][0].sessionID)
+							ui.discovery.currErr = ui.Downloader.downloadStart(ui.discovery.foundTree[li][si][0].sessionID)
 						}
 					}
 					imgui.SameLine()
