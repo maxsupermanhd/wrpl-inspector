@@ -63,71 +63,92 @@ func (dd *DownloaderData) getStatus() string {
 func (dd *DownloaderData) downloadRoutine(sid string) {
 	partNum := 0
 	partBytes := &bytes.Buffer{}
-reqLoop:
 	for {
-		partBytes.Reset()
-		partFname := fmt.Sprintf("%04d.wrpl", partNum)
-		var partUrl string
-		if dd.DownloaderUrlFormat == nil {
-			partUrl = "https://wt-game-replays.warthunder.com/" + sid + "/" + partFname
-		} else {
-			partUrl = dd.DownloaderUrlFormat(sid, partNum)
+		partSavePath := filepath.Join("fetchedReplays", sid, fmt.Sprintf("%04d.wrpl", partNum))
+		cacheInfo, err := os.Stat(partSavePath)
+		if err == nil && !cacheInfo.IsDir() && cacheInfo.Size() > 0 {
+			dd.setStatus("part %q already downloaded, skipping", partSavePath)
+			partNum++
+			continue
 		}
-		dd.setStatus("working, %q: sent HTTP GET", partUrl)
-		resp, err := http.Get(partUrl)
+
+		partBytes, err = dd.fetchSession(partBytes, sid, partNum)
 		if err != nil {
-			dd.setStatus("error, %q: sending HTTP GET: %s", partUrl, err.Error())
 			return
 		}
-		if resp.StatusCode == 404 || resp.StatusCode == 403 {
-			if partNum == 0 {
-				dd.setStatus("error, %q: snail says it does not have the session (got 404 on part 0)", partUrl)
-				return
-			}
-			dd.setStatus("done, downloaded %d parts and reached %d, assuming end of session", partNum, resp.StatusCode)
-			return
-		} else if resp.StatusCode != 200 {
-			dd.setStatus("error, %q: returned %s", partUrl, resp.Status)
+		if partBytes == nil {
 			return
 		}
 
-		readChunk := make([]byte, 1024)
-		lastProgressReport := time.Time{}
-		lastReportLen := 0
-		timeStarted := time.Now()
-		prgTotal := humanize.Bytes(uint64(resp.ContentLength))
-		for {
-			n, err := resp.Body.Read(readChunk)
-			partBytes.Write(readChunk[:n])
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					if int64(partBytes.Len()) == resp.ContentLength {
-						break
-					}
-				} else {
-					dd.setStatus("error, %q: %s", partUrl, err.Error())
-					continue reqLoop
-				}
-			}
-			since := time.Since(lastProgressReport)
-			if since >= 250*time.Millisecond {
-				prgDownloaded := humanize.Bytes(uint64(partBytes.Len()))
-				currentLen := partBytes.Len()
-				prgSpeed := humanize.Bytes(uint64((float64(currentLen-lastReportLen) / since.Seconds())))
-				lastReportLen = currentLen
-				prgTaking := time.Since(timeStarted).Round(time.Second).String()
-				dd.setStatus("working %q: %s/%s (%s/s) (elapsed %s)", partUrl, prgDownloaded, prgTotal, prgSpeed, prgTaking)
-				lastProgressReport = time.Now()
-			}
-		}
-
-		dd.setStatus("saving, %q: downloaded %s in %s", partUrl, humanize.Bytes(uint64(partBytes.Len())), time.Since(timeStarted).Round(time.Second))
-
-		err = os.WriteFile(filepath.Join("fetchedReplays", sid, partFname), partBytes.Bytes(), 0644)
+		err = os.WriteFile(partSavePath, partBytes.Bytes(), 0644)
 		if err != nil {
-			dd.setStatus("error saving %q: %s", partUrl, err.Error())
+			dd.setStatus("error saving part %d: %s", partNum, err.Error())
 			return
 		}
 		partNum++
 	}
+}
+
+func (dd *DownloaderData) fetchSession(partBytes *bytes.Buffer, sid string, partNum int) (*bytes.Buffer, error) {
+	if partBytes == nil {
+		partBytes = &bytes.Buffer{}
+	}
+	partBytes.Reset()
+	partFname := fmt.Sprintf("%04d.wrpl", partNum)
+	var partUrl string
+	if dd.DownloaderUrlFormat == nil {
+		partUrl = "https://wt-game-replays.warthunder.com/" + sid + "/" + partFname
+	} else {
+		partUrl = dd.DownloaderUrlFormat(sid, partNum)
+	}
+	dd.setStatus("working, %q: sent HTTP GET", partUrl)
+	resp, err := http.Get(partUrl)
+	if err != nil {
+		dd.setStatus("error, %q: sending HTTP GET: %s", partUrl, err.Error())
+		return nil, err
+	}
+	if resp.StatusCode == 404 || resp.StatusCode == 403 {
+		if partNum == 0 {
+			dd.setStatus("error, %q: snail says it does not have the session (got 404 on part 0)", partUrl)
+			return nil, nil
+		}
+		dd.setStatus("done, downloaded %d parts and reached %d, assuming end of session", partNum, resp.StatusCode)
+		return nil, nil
+	} else if resp.StatusCode != 200 {
+		dd.setStatus("error, %q: returned %s", partUrl, resp.Status)
+		return nil, nil
+	}
+
+	readChunk := make([]byte, 1024)
+	lastProgressReport := time.Time{}
+	lastReportLen := 0
+	timeStarted := time.Now()
+	prgTotal := humanize.Bytes(uint64(resp.ContentLength))
+	for {
+		n, err := resp.Body.Read(readChunk)
+		partBytes.Write(readChunk[:n])
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				if int64(partBytes.Len()) == resp.ContentLength {
+					break
+				}
+			} else {
+				dd.setStatus("error, %q: %s", partUrl, err.Error())
+				return nil, err
+			}
+		}
+		since := time.Since(lastProgressReport)
+		if since >= 250*time.Millisecond {
+			prgDownloaded := humanize.Bytes(uint64(partBytes.Len()))
+			currentLen := partBytes.Len()
+			prgSpeed := humanize.Bytes(uint64((float64(currentLen-lastReportLen) / since.Seconds())))
+			lastReportLen = currentLen
+			prgTaking := time.Since(timeStarted).Round(time.Second).String()
+			dd.setStatus("working %q: %s/%s (%s/s) (elapsed %s)", partUrl, prgDownloaded, prgTotal, prgSpeed, prgTaking)
+			lastProgressReport = time.Now()
+		}
+	}
+
+	dd.setStatus("saving, %q: downloaded %s in %s", partUrl, humanize.Bytes(uint64(partBytes.Len())), time.Since(timeStarted).Round(time.Second))
+	return partBytes, nil
 }
