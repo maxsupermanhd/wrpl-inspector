@@ -72,6 +72,8 @@ type PacketsTab struct {
 	filterError         error
 	filterTook          time.Duration
 
+	UISaveLoadFilter func() bool
+
 	view PacketStreamView
 }
 
@@ -131,6 +133,11 @@ func (tab *PacketsTab) Run() {
 		tab.filterNeeded = true
 		return 0
 	}))
+	if tab.UISaveLoadFilter != nil {
+		if tab.UISaveLoadFilter() {
+			tab.filterNeeded = true
+		}
+	}
 
 	if tab.filterNeeded {
 		tab.filterNeeded = false
