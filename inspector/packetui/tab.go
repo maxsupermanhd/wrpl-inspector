@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -46,6 +47,13 @@ func (tab *PacketsTab) Name() string {
 
 func (tab *PacketsTab) Init() {
 	tab.s = inspector.NewPacketStreamSelector(append([]packet.PacketStreamProvider{tab.rpl.GlobalStreamProvider()}, tab.StreamProviders...)...)
+
+	tab.filterParserAvailableNames = []string{}
+	for _, p := range tab.rpl.Parsers {
+		tab.filterParserAvailableNames = append(tab.filterParserAvailableNames, p.Name())
+	}
+	slices.Sort(tab.filterParserAvailableNames)
+	tab.filterParserSelections = make([]bool, len(tab.filterParserAvailableNames))
 }
 
 type FilterParserSettings struct {
@@ -53,7 +61,7 @@ type FilterParserSettings struct {
 	ErrorsCsPresent bool
 	ResultDoFilter  bool
 	ResultCsPresent bool
-	Name            string
+	Names           []string
 }
 
 type PacketsTab struct {
@@ -62,15 +70,17 @@ type PacketsTab struct {
 	s               *inspector.PacketStreamSelector
 	StreamProviders []packet.PacketStreamProvider
 
-	FilterInput         FilterInput
-	FilterMode          FilterMode
-	FilterConstraint    string
-	FilterType          int32
-	FilterTypeEnable    bool
-	FilterParserResults FilterParserSettings
-	filterNeeded        bool
-	filterError         error
-	filterTook          time.Duration
+	FilterInput                FilterInput
+	FilterMode                 FilterMode
+	FilterConstraint           string
+	FilterType                 int32
+	FilterTypeEnable           bool
+	FilterParserResults        FilterParserSettings
+	filterParserAvailableNames []string
+	filterParserSelections     []bool
+	filterNeeded               bool
+	filterError                error
+	filterTook                 time.Duration
 
 	UISaveLoadFilter func() bool
 
@@ -110,13 +120,27 @@ func (tab *PacketsTab) Run() {
 	}
 	if imgui.BeginPopup("popupFilterParserSettings") {
 		imgui.AlignTextToFramePadding()
-		imgui.TextUnformatted("Parser name")
-		imgui.SameLine()
-		imgui.SetNextItemWidth(100)
-		imui.FlagUpdate(&tab.filterNeeded, imgui.InputTextWithHint("##filterParserName", "", &tab.FilterParserResults.Name, 0, func(data imgui.InputTextCallbackData) int {
-			tab.filterNeeded = true
-			return 0
-		}))
+		if imgui.Button("Parser name") {
+			imgui.OpenPopupStr("parserFilterPopup")
+		}
+		if imgui.BeginPopup("parserFilterPopup") {
+			needsUpdate := false
+			for i, parserName := range tab.filterParserAvailableNames {
+				if imgui.MenuItemBoolPtr(parserName, "", &tab.filterParserSelections[i]) {
+					needsUpdate = true
+				}
+			}
+			if needsUpdate {
+				tab.filterNeeded = true
+				tab.FilterParserResults.Names = []string{}
+				for i, parserName := range tab.filterParserAvailableNames {
+					if tab.filterParserSelections[i] {
+						tab.FilterParserResults.Names = append(tab.FilterParserResults.Names, parserName)
+					}
+				}
+			}
+			imgui.EndPopup()
+		}
 
 		imui.FlagUpdate(&tab.filterNeeded, imgui.Checkbox("Filter on error", &tab.FilterParserResults.ErrorsDoFilter))
 		if tab.FilterParserResults.ErrorsDoFilter {
@@ -242,10 +266,10 @@ filterLoop:
 				}
 			}
 		}
-		if tab.FilterParserResults.Name != "" {
+		if len(tab.FilterParserResults.Names) > 0 {
 			found := false
 			for _, p := range pk.ParsersResults {
-				if p.Parser == tab.FilterParserResults.Name {
+				if slices.Contains(tab.FilterParserResults.Names, p.Parser) {
 					found = true
 					break
 				}
