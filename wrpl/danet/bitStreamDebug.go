@@ -1,4 +1,4 @@
-//go:build !debug
+//go:build debug
 
 /*
 	wrpl: War Thunder replay parsing library (golang)
@@ -22,6 +22,7 @@ package danet
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
@@ -35,19 +36,23 @@ func NewBitReader(data []byte) *BitReader {
 }
 
 func (bs *BitReader) IgnoreBits(n int) {
+	fmt.Printf("bitreader ignore bits %d\n", n)
 	bs.BitOffset += n
 }
 
 func (bs *BitReader) IgnoreBytes(n int) {
+	fmt.Printf("bitreader ignore bits %d\n", n*8)
 	bs.BitOffset += n * 8
 }
 
 func (bs *BitReader) ReadBits(bits int) ([]byte, error) {
+	fmt.Printf("bitreader read bits %d\n", bits)
 	if bits == 0 {
 		return []byte{}, nil
 	}
 	bitlen := bits2bytes(bs.BitOffset + bits)
 	if bitlen > len(bs.Data) {
+		fmt.Printf("bitreader read bits reading too much 1 (%d > %d)\n", bitlen, len(bs.Data))
 		ret, _ := bs.ReadBits(len(bs.Data)*8 - bs.BitOffset)
 		return ret, io.EOF
 	}
@@ -56,14 +61,17 @@ func (bs *BitReader) ReadBits(bits int) ([]byte, error) {
 	if offset == 0 && (bits&7) == 0 {
 		r_off := bits2bytes(bs.BitOffset)
 		if r_off > len(bs.Data) {
+			fmt.Printf("bitreader read bits reading too much 2 (%d > %d)\n", r_off, len(bs.Data))
 			return []byte{}, io.EOF
 		}
 		r_len := r_off + bits2bytes(bits)
 		if r_len > len(bs.Data) {
+			fmt.Printf("bitreader read bits reading too much 3 (%d > %d)\n", r_len, len(bs.Data))
 			return []byte{}, io.EOF
 		}
 		temp := bs.Data[r_off:r_len]
 		bs.BitOffset += bits
+		fmt.Printf("bitreader read bits read %b\n", temp)
 		return temp, nil
 	}
 
@@ -87,15 +95,18 @@ func (bs *BitReader) ReadBits(bits int) ([]byte, error) {
 		}
 	}
 
+	fmt.Printf("bitreader read bits read %b\n", output)
 	return output, nil
 }
 
 func (bs *BitReader) ReadBitsInto(bits int, output []byte) (int, error) {
+	fmt.Printf("bitreader read bits into %d\n", bits)
 	if bits == 0 {
 		return 0, nil
 	}
 	bitlen := bits2bytes(bs.BitOffset + bits)
 	if bitlen > len(bs.Data) {
+		fmt.Printf("bitreader read bits into reading too much 1 (%d > %d)\n", bitlen, len(bs.Data))
 		n, err := bs.ReadBitsInto(len(bs.Data)*8-bs.BitOffset, output)
 		if err != nil {
 			return n, err
@@ -107,15 +118,18 @@ func (bs *BitReader) ReadBitsInto(bits int, output []byte) (int, error) {
 	if offset == 0 && (bits&7) == 0 {
 		r_off := bits2bytes(bs.BitOffset)
 		if r_off > len(bs.Data) {
+			fmt.Printf("bitreader read bits into reading too much 2 (%d > %d)\n", r_off, len(bs.Data))
 			return 0, io.EOF
 		}
 		r_len := r_off + bits2bytes(bits)
 		if r_len > len(bs.Data) {
+			fmt.Printf("bitreader read bits into reading too much 3 (%d > %d)\n", r_len, len(bs.Data))
 			return 0, io.EOF
 		}
 		temp := bs.Data[r_off:r_len]
 		copy(output, temp)
 		bs.BitOffset += bits
+		fmt.Printf("bitreader read bits into read %b\n", temp)
 		return len(temp) * 8, nil
 	}
 
@@ -139,6 +153,7 @@ func (bs *BitReader) ReadBitsInto(bits int, output []byte) (int, error) {
 		}
 	}
 
+	fmt.Printf("bitreader read bits into read %b\n", output)
 	return ogBits, nil
 }
 
@@ -166,7 +181,7 @@ func (bs *BitReader) Read(dst []byte) (n int, err error) {
 
 // func (bs *BitReader) Read(dst []byte) (n int, err error) {
 // 	// fmt.Println("----read----")
-// 	// fmt.Printf("buf %#v off %d\n", bs.Data, bs.BitOffset)
+// 	// fmt.Printf("bitreader buf %#v off %d\n", bs.Data, bs.BitOffset)
 // 	dstPre := make([]byte, len(dst))
 // 	copy(dstPre, dst)
 
@@ -192,17 +207,20 @@ func (bs *BitReader) Read(dst []byte) (n int, err error) {
 // }
 
 func (bs *BitReader) ReadLenStr() (string, error) {
+	fmt.Printf("bitreader read len str\n")
 	l, err := bs.ReadByte()
 	if err != nil {
 		return "", err
 	}
 	ret := make([]byte, l)
 	_, err = bs.Read(ret)
+	fmt.Printf("bitreader read len str done\n")
 	return string(ret), err
 }
 
 // if dst is nil, it will panic
 func (bs *BitReader) ReadLenStrInto(dst *string) error {
+	fmt.Printf("bitreader read len str into\n")
 	l, err := bs.ReadByte()
 	if err != nil {
 		return err
@@ -213,10 +231,12 @@ func (bs *BitReader) ReadLenStrInto(dst *string) error {
 		return err
 	}
 	*dst = string(ret)
+	fmt.Printf("bitreader read len str into done\n")
 	return err
 }
 
 func (bs *BitReader) ReadCompressed() (uint64, error) {
+	fmt.Printf("bitreader read compressed\n")
 	v := uint64(0)
 	count := 0
 	for {
@@ -230,10 +250,12 @@ func (bs *BitReader) ReadCompressed() (uint64, error) {
 			break
 		}
 	}
+	fmt.Printf("bitreader read compressed done\n")
 	return v, nil
 }
 
 func (bs *BitReader) ReadCompressedInto(dst *uint64) error {
+	fmt.Printf("bitreader read compressed into\n")
 	v := uint64(0)
 	count := 0
 	for {
@@ -248,6 +270,7 @@ func (bs *BitReader) ReadCompressedInto(dst *uint64) error {
 		}
 	}
 	*dst = v
+	fmt.Printf("bitreader read compressed into done\n")
 	return nil
 }
 
@@ -292,6 +315,7 @@ func (bs *BitReader) ReadU64LE() (ret uint64, err error) {
 }
 
 func (bs *BitReader) AlignToByteBoundary() {
+	fmt.Printf("bitreader align\n")
 	bs.BitOffset += 8 - (((bs.BitOffset - 1) & 7) + 1)
 }
 
