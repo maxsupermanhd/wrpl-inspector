@@ -43,8 +43,7 @@ type PacketStreamView struct {
 	// stream can be swapped in place
 	Stream []packet.ParsedPacket
 
-	RawTime         bool
-	ShowParseResult bool
+	RawTime bool
 }
 
 func (view *PacketStreamView) UpdateIndex() {
@@ -85,10 +84,6 @@ func (view *PacketStreamView) Run() {
 	if view.Idx < 0 || view.Idx >= len(view.Stream) {
 		view.Idx = 0
 	}
-	imgui.SameLine()
-	imgui.TextUnformatted("Show parse result")
-	imgui.SameLine()
-	imgui.Checkbox("##showParseResult", &view.ShowParseResult)
 
 	pk := view.Stream[view.Idx]
 	view.Seq = pk.Seq
@@ -110,6 +105,8 @@ func (view *PacketStreamView) Run() {
 			imgui.EndTooltip()
 		}
 	}
+	imgui.SameLine()
+	imgui.TextUnformatted(fmt.Sprintf("Len: %d", len(pk.PacketPayload)))
 
 	imgui.SameLine()
 	imgui.TextUnformatted("Copy:")
@@ -144,11 +141,11 @@ func (view *PacketStreamView) Run() {
 	}
 
 	avail := imgui.ContentRegionAvail()
-	if view.ShowParseResult {
-		avail.X *= 0.5
-		avail.X -= imgui.CurrentStyle().FramePadding().X
-	}
-	imgui.BeginChildStrV("contents view", avail, 0, 0)
+	avail.X -= imgui.CurrentStyle().FramePadding().X * 3
+	imgui.SetNextWindowSizeConstraints(imgui.NewVec2(0, 0), avail)
+	avail = imgui.ContentRegionAvail()
+	avail.X *= 0.8
+	imgui.BeginChildStrV("contents view", avail, imgui.ChildFlagsResizeX, 0)
 	switch view.ViewType {
 	case ViewTypeHexdump:
 		d := hex.Dump(view.Stream[view.Idx].PacketPayload)
@@ -312,14 +309,14 @@ func (view *PacketStreamView) Run() {
 	}
 	imgui.EndChild()
 
-	if view.ShowParseResult {
-		imgui.SameLine()
-		if imgui.BeginChildStrV("parsed view", avail, 0, 0) {
-			parsedDump := spew.Sdump(pk.ParsersResults)
-			imgui.InputTextMultiline("##parsed", &parsedDump, imgui.ContentRegionAvail(), imgui.InputTextFlagsReadOnly|imgui.InputTextFlagsWordWrap, imui.ImEmptyInputCallback)
-		}
-		imgui.EndChild()
+	imgui.SameLine()
+	avail = imgui.ContentRegionAvail()
+	imgui.BeginChildStrV("parsed view", avail, 0, 0)
+	if avail.X > imgui.CurrentStyle().FramePadding().X*2 {
+		parsedDump := spew.Sdump(pk.ParsersResults)
+		imgui.InputTextMultiline("##parsed", &parsedDump, imgui.ContentRegionAvail(), imgui.InputTextFlagsReadOnly|imgui.InputTextFlagsWordWrap, imui.ImEmptyInputCallback)
 	}
+	imgui.EndChild()
 
 	if doIdxScroll {
 		io := imgui.CurrentIO()
