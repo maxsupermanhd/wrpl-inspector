@@ -20,13 +20,14 @@ package wrpl
 
 import (
 	"bytes"
-	"compress/zlib"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"slices"
+
+	"github.com/klauspost/compress/zlib"
 )
 
 // type Player struct {
