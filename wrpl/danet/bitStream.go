@@ -48,8 +48,15 @@ func (bs *BitReader) ReadBits(bits int) ([]byte, error) {
 	}
 	bitlen := bits2bytes(bs.BitOffset + bits)
 	if bitlen > len(bs.Data) {
-		ret, _ := bs.ReadBits(len(bs.Data)*8 - bs.BitOffset)
-		return ret, io.EOF
+		toRead := len(bs.Data)*8 - bs.BitOffset
+		if toRead < 1 {
+			return []byte{}, io.EOF
+		}
+		ret, err := bs.ReadBits(toRead)
+		if err == nil {
+			err = io.EOF
+		}
+		return ret, err
 	}
 
 	offset := bs.BitOffset & 7
@@ -96,11 +103,15 @@ func (bs *BitReader) ReadBitsInto(bits int, output []byte) (int, error) {
 	}
 	bitlen := bits2bytes(bs.BitOffset + bits)
 	if bitlen > len(bs.Data) {
-		n, err := bs.ReadBitsInto(len(bs.Data)*8-bs.BitOffset, output)
-		if err != nil {
-			return n, err
+		toRead := len(bs.Data)*8 - bs.BitOffset
+		if toRead < 1 {
+			return 0, io.EOF
 		}
-		return n, io.EOF
+		n, err := bs.ReadBitsInto(toRead, output)
+		if err == nil {
+			err = io.EOF
+		}
+		return n, err
 	}
 
 	offset := bs.BitOffset & 7
