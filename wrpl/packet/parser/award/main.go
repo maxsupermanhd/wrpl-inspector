@@ -26,6 +26,7 @@ import (
 )
 
 type Award struct {
+	CurrentTime    uint32
 	AwardType      byte
 	Always0x003E   string `reflectViewHidden:"true"`
 	Always0x000000 string `reflectViewHidden:"true"`
@@ -54,7 +55,9 @@ func (p *PacketAwardParser) ParsesMatching() map[byte][][]packet.ParsingConditio
 }
 
 func (p *PacketAwardParser) Parse(pk *packet.Packet) (any, error) {
-	parsed := Award{}
+	parsed := Award{
+		CurrentTime: pk.CurrentTime,
+	}
 	var err error
 	r := bytes.NewReader(pk.PacketPayload[4:])
 	parsed.AwardType, err = r.ReadByte()
