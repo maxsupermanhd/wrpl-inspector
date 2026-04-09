@@ -4,11 +4,17 @@ A golang library and dear-imgui ui to explore War Thunder replay format
 
 ![screenshots](assets/preview.gif)
 
+## Project structure
+
+Project has 2 components:
+
+inspector - application gui library where you can toy around with the replays, view packets and interact with parser results (with pluggable gui tabs)
+
+wrpl - standalone library for parsing replays (with pluggable parsers)
+
 ## Usage
 
-1. Clone the repo
-2. `go build` (requires golang toolchain installed)
-3. Run `wrpl-inspector` executable
+Do `go build` in `main` directory to get a sample application that launches inspector gui.
 
 ## Capabilities
 
@@ -29,16 +35,33 @@ A golang library and dear-imgui ui to explore War Thunder replay format
   - Parsing chat packets
   - Parsing award packets
   - Parsing kill packets
-  - Parsing movement packets (server, client only self)
+  - Parsing full precision ground unit movement packets
+
+### Private capabilities
+
+If you want to access those, feel free to ask.
+
+- Parsers
+  - Camera angles
+  - More MPI events (critical/fatal damage)
+  - Complete kill packet decoding
+  - Aircraft state (by LivingTheDagor)
+  - Most of ECS system (by LivingTheDagor)
+- Tabs
+  - ECS component end entity view
+  - Complete kill log view
+  - Map view (ground unit paths, kills and camera angles on the minimap with playback)
 
 ## TODOs
 
-- Make sense of:
-  - aircraft movement packets (type 2 "AircraftSmall")
-  - client: other's movement packets
-- Add more exporting options for filtered packets (csv/tsv/sqlite?)
 - Packet diffing, generally capability for easier comparing of packets from replay to replay
 - Potentially syncing packets and video stream for better context awareness in packet view
+
+## Contributing
+
+If you wrote a gui tab or a parser feel free to open pull request.
+A lot of work was done in private repository with no plans on publishing, if you want
+to take a look at it or ask questions feel free to contact me.
 
 ## Credits
 
