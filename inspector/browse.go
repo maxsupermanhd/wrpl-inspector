@@ -72,15 +72,15 @@ func (ui *UI) showBrowseTab() {
 	imgui.InputTextWithHint("##downloadid", "", &ui.discovery.input, 0, imui.ImEmptyInputCallback)
 	imgui.SameLine()
 	if imgui.Button("Download from hex sid") {
-		ui.discovery.currErr = ui.Downloader.downloadStart(ui.discovery.input)
+		ui.discovery.currErr = ui.Downloader.downloadStart(strings.Trim(ui.discovery.input, `"`))
 	}
 	imgui.SameLine()
 	if imgui.Button("Open downloaded sid") {
-		ui.discovery.currErr = ui.loadReplayMultipartDir(filepath.Join("fetchedReplays", ui.discovery.input))
+		ui.discovery.currErr = ui.loadReplayMultipartDir(filepath.Join("fetchedReplays", strings.Trim(ui.discovery.input, `"`)))
 	}
 	imgui.SameLine()
 	if imgui.Button("Open single file") {
-		ui.discovery.currErr = ui.loadReplayFromPath(ui.discovery.input)
+		ui.discovery.currErr = ui.loadReplayFromPath(strings.Trim(ui.discovery.input, `"`))
 	}
 
 	imgui.TextUnformatted(fmt.Sprintf("Found %d replay files", len(ui.discovery.found)))
