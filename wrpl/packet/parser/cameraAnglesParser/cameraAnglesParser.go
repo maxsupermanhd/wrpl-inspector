@@ -1,4 +1,4 @@
-package cameraanglesparser
+package packetcameraangles
 
 import (
 	"encoding/binary"
