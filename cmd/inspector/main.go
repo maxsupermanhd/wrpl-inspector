@@ -48,7 +48,7 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		&packetchat.PacketChatParser{},
 		&packetaward.PacketAwardParser{},
 		&packetkill.PacketKillParser{},
-		&packetmovement.PacketMovementParser{},
+		&packetmovement.PositionRetainerParser{},
 		ecs,
 		slot,
 	}

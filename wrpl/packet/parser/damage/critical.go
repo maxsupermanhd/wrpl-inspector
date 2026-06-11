@@ -1,4 +1,4 @@
-package critical
+package packetdamage
 
 import (
 	"encoding/binary"
