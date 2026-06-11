@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/idfieldserializer"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/idfieldserializer"
 
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/danet"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
 )
 
 type CameraAnglesData struct {

@@ -10,8 +10,8 @@ import (
 
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/AllenDang/cimgui-go/implot"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
 )
 
 var (

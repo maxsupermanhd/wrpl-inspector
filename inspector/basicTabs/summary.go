@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/AllenDang/cimgui-go/imgui"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector/imui"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/imui"
 )
 
 type basicSummaryTab struct {

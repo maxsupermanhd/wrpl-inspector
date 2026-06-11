@@ -45,7 +45,7 @@ func (bs *BitReader) LogDebug(format string, args ...any) {
 	frames := runtime.CallersFrames(pc[:n])
 	for {
 		frame, more := frames.Next()
-		if strings.HasPrefix(frame.Function, "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/danet.") ||
+		if strings.HasPrefix(frame.Function, "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet.") ||
 			frame.Function == "io.ReadAtLeast" || frame.Function == "io.ReadFull" {
 			if !more {
 				break

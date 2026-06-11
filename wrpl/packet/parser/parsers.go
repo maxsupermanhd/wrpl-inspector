@@ -19,19 +19,19 @@
 package catalog
 
 import (
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
-	packetaward "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/award"
-	packetchat "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/chat"
-	packetecs "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/ecs"
-	packetkill "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/kill"
-	packetmovement "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/movement"
-	packetstub "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/stub"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
+	packetaward "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/award"
+	packetchat "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/chat"
+	packetecs2 "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/ecs2"
+	packetkill "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/kill"
+	packetmovement "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/movement"
+	packetstub "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/stub"
 )
 
 var (
 	_ packet.PacketParser = &packetaward.PacketAwardParser{}
 	_ packet.PacketParser = &packetchat.PacketChatParser{}
-	_ packet.PacketParser = &packetecs.PacketECSParser{}
+	_ packet.PacketParser = &packetecs2.PacketECSParser{}
 	_ packet.PacketParser = &packetkill.PacketKillParser{}
 	_ packet.PacketParser = &packetmovement.PacketMovementParser{}
 	_ packet.PacketParser = &packetstub.PacketStubParser{}

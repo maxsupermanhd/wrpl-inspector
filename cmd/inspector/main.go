@@ -1,27 +1,34 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector"
-	basictabs "github.com/maxsupermanhd/wrpl-inspector/v2/inspector/basicTabs"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector/ecsui"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector/packetui"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector/playersui"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
-	packetaward "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/award"
-	packetchat "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/chat"
-	packetecs "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/ecs"
-	packetkill "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/kill"
-	packetmovement "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/movement"
-	packetslot "github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet/parser/slot"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector"
+	basictabs "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/basicTabs"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/ecsui"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/packetui"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/playersui"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
+	packetaward "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/award"
+	packetchat "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/chat"
+	packetecs2 "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/ecs2"
+	packetkill "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/kill"
+	packetmovement "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/movement"
+	packetslot "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/slot"
+)
+
+var (
+	chms *packetecs2.ComponentHashMaps
+	ui   *inspector.UI
 )
 
 func main() {
+	chms = noerr(packetecs2.ReadComponentHashMaps(bytes.NewReader(noerr(os.ReadFile("../../ecshashes.json")))))
 	ui := &inspector.UI{
 		InitFont:        noerr(os.ReadFile("HackNerdFontMono-Regular.ttf")),
 		ProcessReplayFn: replayProcessor,
@@ -33,7 +40,7 @@ func main() {
 }
 
 func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []inspector.Tab) {
-	ecs := packetecs.NewPacketECSParser()
+	ecs := packetecs2.NewPacketECSParser(*chms)
 	slot := &packetslot.PacketSlotParser{
 		KeepMessages: true,
 	}
@@ -67,7 +74,12 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		tabs = append(tabs, genBlkJSONTab("Results", results))
 	}
 	tabs = append(tabs, packetui.NewPacketsTab(rpl, ecs, slot))
-	tabs = append(tabs, ecsui.NewECSUI(rpl, ecs))
+	hashTypes := chms.ComponentNames
+	hashNames := map[uint32]string{}
+	for k, v := range chms.DataComponents {
+		hashNames[k] = v.Name
+	}
+	tabs = append(tabs, ecsui.NewECSUI(rpl, ecs, hashNames, hashTypes))
 	tabs = append(tabs, playersui.NewPlayersUI(rpl, slot))
 	return parsers, tabs
 }

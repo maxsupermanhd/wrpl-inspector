@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
 )
 
 type LoadedReplay struct {

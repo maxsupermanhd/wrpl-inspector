@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/danet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet"
 )
 
 func ReadVariableLengthSize(r io.Reader) (uint32, error) {

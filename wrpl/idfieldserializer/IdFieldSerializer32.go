@@ -5,7 +5,7 @@ import (
 	"errors"
 	"math/bits"
 
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/danet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet"
 )
 
 type IdFieldSerializer32 struct {

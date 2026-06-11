@@ -32,8 +32,8 @@ import (
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/AllenDang/cimgui-go/implot"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/inspector/imui"
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/imui"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
 )
 
 type PacketStreamView struct {

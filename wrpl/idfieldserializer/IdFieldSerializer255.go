@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/danet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet"
 )
 
 const BITS_PER_COUNT = 12

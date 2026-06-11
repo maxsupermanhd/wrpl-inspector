@@ -3,7 +3,7 @@ package idfieldserializer
 import (
 	"errors"
 
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/danet"
+	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet"
 )
 
 var (
