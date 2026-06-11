@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"strconv"
 
+	packetslot "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/slot"
+
 	"github.com/AllenDang/cimgui-go/imgui"
 	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector"
-	packetslot "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/slot"
 )
 
 type PlayersUI struct {
@@ -48,14 +49,16 @@ func (tab *PlayersUI) Init() {
 
 func (tab *PlayersUI) Run() {
 	tableFlags := imgui.TableFlagsRowBg | imgui.TableFlagsBordersV | imgui.TableFlagsBordersOuterH | imgui.TableFlagsSizingFixedFit | imgui.TableFlagsScrollY | imgui.TableFlagsScrollX
-	if imgui.BeginTableV("playersTable", 7, tableFlags, imgui.ContentRegionAvail(), 0) {
+	if imgui.BeginTableV("playersTable", 9, tableFlags, imgui.ContentRegionAvail(), 0) {
 		imgui.TableSetupColumn("n")
 		imgui.TableSetupColumn("nx")
+		imgui.TableSetupColumn("team")
 		imgui.TableSetupColumn("name")
 		imgui.TableSetupColumn("clan")
 		imgui.TableSetupColumn("id")
 		imgui.TableSetupColumn("id hex")
 		imgui.TableSetupColumn("title")
+		imgui.TableSetupColumn("realNick")
 		imgui.TableHeadersRow()
 		for i, u := range tab.sp.Players {
 			if u == nil {
@@ -68,23 +71,27 @@ func (tab *PlayersUI) Run() {
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(fmt.Sprintf("%02x", i))
 			imgui.TableNextColumn()
-			imgui.TextUnformatted(u.Name)
+			imgui.TextUnformatted(strconv.Itoa(int(u.Team)))
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(u.Uid.Name)
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(u.ClanTag)
 			imgui.TableNextColumn()
-			imgui.TextUnformatted(strconv.Itoa(int(u.UserID)))
+			imgui.TextUnformatted(strconv.Itoa(int(u.Uid.Player_id)))
 			imgui.SameLine()
 			if imgui.SmallButton("copy##uidDex") {
-				imgui.SetClipboardText(strconv.Itoa(int(u.UserID)))
+				imgui.SetClipboardText(strconv.Itoa(int(u.Uid.Player_id)))
 			}
 			imgui.TableNextColumn()
-			imgui.TextUnformatted(fmt.Sprintf("%08x", u.UserID))
+			imgui.TextUnformatted(fmt.Sprintf("%08x", u.Uid.Player_id))
 			imgui.SameLine()
 			if imgui.SmallButton("copy##uidHex") {
-				imgui.SetClipboardText(fmt.Sprintf("%08x", u.UserID))
+				imgui.SetClipboardText(fmt.Sprintf("%08x", u.Uid.Player_id))
 			}
 			imgui.TableNextColumn()
 			imgui.TextUnformatted(u.Title)
+			imgui.TableNextColumn()
+			imgui.TextUnformatted(u.RealNick)
 			imgui.PopID()
 		}
 		imgui.EndTable()
