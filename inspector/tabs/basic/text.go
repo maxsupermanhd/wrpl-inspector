@@ -16,7 +16,7 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package basictabs
+package tabBasic
 
 import (
 	"github.com/AllenDang/cimgui-go/imgui"

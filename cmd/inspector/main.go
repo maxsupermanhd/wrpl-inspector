@@ -8,10 +8,10 @@ import (
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector"
-	basictabs "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/basicTabs"
-	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/ecsui"
-	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/packetui"
-	"github.com/maxsupermanhd/wrpl-inspector/v3/inspector/playersui"
+	basictabs "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/basic"
+	tabEcs "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/ecsui"
+	tabPacket "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/packetui"
+	tabPlayers "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/playersui"
 	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl"
 	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
 	packetaward "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/award"
@@ -73,14 +73,14 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		}
 		tabs = append(tabs, genBlkJSONTab("Results", results))
 	}
-	tabs = append(tabs, packetui.NewPacketsTab(rpl, ecs, slot))
+	tabs = append(tabs, tabPacket.NewPacketsTab(rpl, ecs, slot))
 	hashTypes := chms.ComponentNames
 	hashNames := map[uint32]string{}
 	for k, v := range chms.DataComponents {
 		hashNames[k] = v.Name
 	}
-	tabs = append(tabs, ecsui.NewECSUI(rpl, ecs, hashNames, hashTypes))
-	tabs = append(tabs, playersui.NewPlayersUI(rpl, slot))
+	tabs = append(tabs, tabEcs.NewECSUI(rpl, ecs, hashNames, hashTypes))
+	tabs = append(tabs, tabPlayers.NewPlayersUI(rpl, slot))
 	return parsers, tabs
 }
 

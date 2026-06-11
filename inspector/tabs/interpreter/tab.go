@@ -1,4 +1,4 @@
-package interpreter
+package tabInterpreter
 
 import (
 	"bytes"
