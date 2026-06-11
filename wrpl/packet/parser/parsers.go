@@ -33,6 +33,6 @@ var (
 	_ packet.PacketParser = &packetchat.PacketChatParser{}
 	_ packet.PacketParser = &packetecs2.PacketECSParser{}
 	_ packet.PacketParser = &packetkill.PacketKillParser{}
-	_ packet.PacketParser = &packetmovement.PacketMovementParser{}
+	_ packet.PacketParser = &packetmovement.PositionRetainerParser{}
 	_ packet.PacketParser = &packetstub.PacketStubParser{}
 )
