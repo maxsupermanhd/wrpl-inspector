@@ -19,9 +19,7 @@
 package packetchat
 
 import (
-	"bytes"
-
-	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl"
+	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/danet"
 	"github.com/maxsupermanhd/wrpl-inspector/v2/wrpl/packet"
 )
 
@@ -31,7 +29,6 @@ type ParsedPacketChatMessage struct {
 	Sender      string
 	Content     string
 	ChannelType byte
-	IsEnemy     byte
 }
 
 type PacketChatParser struct {
@@ -39,7 +36,7 @@ type PacketChatParser struct {
 }
 
 func (p *PacketChatParser) Name() string {
-	return "chat"
+	return "chat2"
 }
 
 func (p *PacketChatParser) ParsesMatching() map[byte][][]packet.ParsingCondition {
@@ -49,25 +46,21 @@ func (p *PacketChatParser) ParsesMatching() map[byte][][]packet.ParsingCondition
 }
 
 func (p *PacketChatParser) Parse(pk *packet.Packet) (any, error) {
-	r := bytes.NewReader(pk.PacketPayload)
+	r := danet.NewBitReader(pk.PacketPayload)
 	parsed := ParsedPacketChatMessage{
 		PacketSeq:   pk.Seq,
 		CurrentTime: pk.CurrentTime,
 	}
 	var err error
-	parsed.Sender, err = wrpl.ReadLenString(r)
+	parsed.Sender, err = r.ReadLenStr()
 	if err != nil {
 		return nil, err
 	}
-	parsed.Content, err = wrpl.ReadLenString(r)
+	parsed.Content, err = r.ReadLenStr()
 	if err != nil {
 		return nil, err
 	}
 	parsed.ChannelType, err = r.ReadByte()
-	if err != nil {
-		return nil, err
-	}
-	parsed.IsEnemy, err = r.ReadByte()
 	if err != nil {
 		return nil, err
 	}
