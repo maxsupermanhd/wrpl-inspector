@@ -99,8 +99,9 @@ func ImAutoCombo[T AutoComboOption](label string, val *T) bool {
 	return ret
 }
 
-func FlagUpdate(flag *bool, update bool) {
+func FlagUpdate(flag *bool, update bool) bool {
 	if update {
 		*flag = true
 	}
+	return update
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/AllenDang/cimgui-go/backend/glfwbackend"
 	"github.com/davecgh/go-spew/spew"
@@ -15,6 +16,7 @@ import (
 	tabInterpreter "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/interpreter"
 	tabKills "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/kills"
 	tabMapview "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/mapview"
+	tabMPINames "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/mpipackets"
 	tabPacket "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/packetui"
 	tabPlayers "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/playersui"
 	resultsui "github.com/maxsupermanhd/wrpl-inspector/v3/inspector/tabs/results"
@@ -40,6 +42,7 @@ func main() {
 	if runtime.GOOS == "darwin" {
 		runtime.LockOSThread()
 	}
+	debug.SetMemoryLimit(8_000_000_000)
 	chms = noerr(packetecs2.ReadComponentHashMaps(bytes.NewReader(noerr(os.ReadFile("../../data/ecshashes.json")))))
 	ui = &inspector.UI{
 		InitFont:        noerr(os.ReadFile("HackNerdFontMono-Regular.ttf")),
@@ -75,7 +78,6 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		&packetaward.PacketAwardParser{},
 		cameraAngles,
 		fmp,
-		// &mpiparser.MPIStuffParser{},
 		&packetdamage.CriticalDamageParser{ECS: &ecs.Mgr},
 		&packetdamage.SevereDamageParser{ECS: &ecs.Mgr},
 	}
@@ -112,6 +114,7 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		TankMapsPath: "../../data/tankmaps",
 		DataminePath: "../../../War-Thunder-Datamine/",
 	})
+	tabs = append(tabs, tabMPINames.NewMPINamesTab(rpl))
 	return parsers, tabs
 }
 
