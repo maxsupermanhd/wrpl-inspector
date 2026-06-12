@@ -1,3 +1,3 @@
 #!/bin/bash
 
-go build -v && ./main
+go build -v && ./inspector
