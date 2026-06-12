@@ -91,8 +91,7 @@ func (tab *MapViewTab) Init() {
 	tankmapImage, err := levelToTankmap(tab.TankMapsPath, tab.rLevel)
 	if err != nil {
 		tankmapImage = image.NewRGBA(image.Rect(0, 0, 2048, 2048))
-		// tab.initErr = fmt.Errorf("levelToTankmap: %w", err)
-		// return
+		tab.initErr = fmt.Errorf("levelToTankmap: %w", err)
 	}
 	tab.tankmapTextureW = tankmapImage.Rect.Dx()
 	tab.tankmapTextureH = tankmapImage.Rect.Dy()
