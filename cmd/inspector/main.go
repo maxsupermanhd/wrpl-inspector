@@ -28,6 +28,9 @@ var (
 )
 
 func main() {
+	if runtime.GOOS == "darwin" {
+		runtime.LockOSThread()
+	}
 	chms = noerr(packetecs2.ReadComponentHashMaps(bytes.NewReader(noerr(os.ReadFile("../../data/ecshashes.json")))))
 	ui := &inspector.UI{
 		InitFont:        noerr(os.ReadFile("HackNerdFontMono-Regular.ttf")),
