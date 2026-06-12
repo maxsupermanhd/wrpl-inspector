@@ -14,7 +14,7 @@ wrpl - standalone library for parsing replays (with pluggable parsers)
 
 ## Usage
 
-Do `go build` in `main` directory to get a sample application that launches inspector gui.
+Do `go build` in `cmd/inspector` directory to get a sample application that launches inspector gui.
 
 ## Capabilities
 
@@ -32,25 +32,18 @@ Do `go build` in `main` directory to get a sample application that launches insp
   - Downloading server replay from session ID
   - Opening segmented server replay and combining them
 - Packets
-  - Parsing chat packets
-  - Parsing award packets
-  - Parsing kill packets
-  - Parsing full precision ground unit movement packets
-
-### Private capabilities
-
-If you want to access those, feel free to ask.
-
-- Parsers
-  - Camera angles
-  - More MPI events (critical/fatal damage)
-  - Complete kill packet decoding
-  - Aircraft state (by LivingTheDagor)
+  - Chat
   - Most of ECS system (by LivingTheDagor)
-- Tabs
-  - ECS component end entity view
-  - Complete kill log view
-  - Map view (ground unit paths, kills and camera angles on the minimap with playback)
+  - Awards
+  - Kills
+  - Full precision ground unit movement packets
+  - Aircraft state (by LivingTheDagor)
+  - Camera angles
+  - Critical and fatal damage
+  - Player information
+- Features
+	- Kill log
+	- Map view
 
 ## TODOs
 
@@ -69,6 +62,9 @@ This project would've not been here if StatShark devs didn't troll me in their d
 - [Sgambe33's WT-Plotter](https://github.com/Sgambe33/WT-Plotter) (C++) (general motivation, head start)
 - [wt_blk](https://github.com/Warthunder-Open-Source-Foundation/wt_blk) (Rust) (parsing BLK blobs)
 - [llama-for3ver's wt_replay_decoder](https://github.com/llama-for3ver/wt_replay_decoder) (Rust) (parsing packet stream)
+
+Inspector was developed to it's current capabilities in tandem with LivingTheDagor, who also started to publish
+some of his work in [his repository](https://github.com/LivingTheDagor/WrplReplayParser).
 
 ## License
 
