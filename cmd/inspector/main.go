@@ -76,7 +76,6 @@ func replayProcessor(rpl *inspector.LoadedReplay) ([]packet.PacketParser, []insp
 		cameraAngles,
 		fmp,
 		// &mpiparser.MPIStuffParser{},
-		&packetchat.PacketChatParser{},
 		&packetdamage.CriticalDamageParser{ECS: &ecs.Mgr},
 		&packetdamage.SevereDamageParser{ECS: &ecs.Mgr},
 	}
