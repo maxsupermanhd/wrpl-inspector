@@ -90,7 +90,7 @@ func (p *PacketFlightModelParser) Parse(pk *packet.Packet) (any, error) {
 	if p.KeepResults && ret != nil {
 		p.Results = append(p.Results, *ret)
 	}
-	if p.MakeDebugStream {
+	if p.MakeDebugStream && ret != nil {
 		for _, e := range ret.Entries {
 			blobReader := &danet.BitReader{
 				Data:      pk.PacketPayload,
@@ -261,7 +261,7 @@ func (p *PacketFlightModelParser) Parse2(pk *packet.Packet) (*FMUpdatePacket, er
 		if len(ed.SensorsData) > 0 {
 			ed.SensorsUnk0, err = r.ReadByte()
 			if err != nil {
-				return nil, fmt.Errorf("reading sensors unk0: %w", err)
+				return ret, fmt.Errorf("reading sensors unk0: %w", err)
 			}
 		}
 
