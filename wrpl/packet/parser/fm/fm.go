@@ -53,29 +53,31 @@ type FMEntry struct {
 }
 
 type FMData struct {
-	Unk0        bool
-	Unk1        bool
-	Unk2        bool
-	Unk3        uint32
-	Unk4        bool
-	Unk5        *FMDataUnk5
-	Unk10       uint64 // len of unk11
-	Unk11       []uint64
-	Unk12       uint32
-	PosX        float32
-	PosY        float32
-	PosZ        float32
-	EulerBytes  uint32
-	Unk13       [7]byte
-	EnginesData []FMEngineData
-	SensorsData []FMSensorData
-	SensorsUnk0 byte // only if have sensor data
-	TargetsData []FMTargetData
-	Unk14       bool // have unk15 unk16
-	Unk15       uint16
-	Unk16       uint16
-	Unk17       bool // have unk18
-	Unk18       uint32
+	Unk0              bool
+	Unk1              bool
+	Unk2              bool
+	Unk3              uint32
+	Unk4              bool
+	Unk5              *FMDataUnk5
+	Unk10             int32 // len of unk11
+	Unk11             []FMDataUnk11Entry
+	Unk12             uint32
+	PosX              float32
+	PosY              float32
+	PosZ              float32
+	EulerBytes        uint32
+	Unk13             [7]byte
+	EnginesData       []FMEngineData
+	SensorsData       []FMSensorData
+	SensorsUnk0       byte // only if have sensor data
+	CounterMeasures   []FMCounterMeasuresData
+	CounterMeasuresU0 byte // only if have counter measures data
+	TargetsData       []FMTargetData
+	Unk14             bool // have unk15 unk16
+	Unk15             uint16
+	Unk16             uint16
+	Unk17             bool // have unk18
+	Unk18             uint32
 }
 
 type FMDataUnk5 struct {
@@ -83,6 +85,17 @@ type FMDataUnk5 struct {
 	Unk7 bool
 	Unk8 bool
 	Unk9 []bool
+}
+
+type FMDataUnk11Entry struct {
+	Temp  int32
+	Temp1 int32
+}
+
+// v1, v2 in dagor's
+type FMCounterMeasuresData struct {
+	V1 byte
+	V2 byte
 }
 
 func (p *PacketFlightModelParser) Parse(pk *packet.Packet) (any, error) {
@@ -204,17 +217,33 @@ func (p *PacketFlightModelParser) Parse2(pk *packet.Packet) (*FMUpdatePacket, er
 			return ret, fmt.Errorf("reading unk5: %w", err)
 		}
 
-		ed.Unk10, err = r.ReadCompressed()
+		ed.Unk10, err = readZigZagI32(r)
 		if err != nil {
-			return ret, fmt.Errorf("reading unk10: %w", err)
+			return ret, fmt.Errorf("reading unk10 (zig_val): %w", err)
 		}
-		ed.Unk10 = -(ed.Unk10 & 1) ^ ed.Unk10>>1
+		if ed.Unk10 < 0 {
+			return ret, fmt.Errorf("reading unk10: negative value %d", ed.Unk10)
+		}
+		ed.Unk11 = make([]FMDataUnk11Entry, 0, ed.Unk10)
 		for i := range ed.Unk10 {
-			val, err := r.ReadCompressed()
+			var entry FMDataUnk11Entry
+			entry.Temp, err = readZigZagI32(r)
 			if err != nil {
-				return ret, fmt.Errorf("reading unk11 bitset val %d/%d: %w", i, ed.Unk10, err)
+				return ret, fmt.Errorf("reading unk11[%d] temp: %w", i, err)
 			}
-			ed.Unk11 = append(ed.Unk11, val)
+			entry.Temp1, err = readZigZagI32(r)
+			if err != nil {
+				return ret, fmt.Errorf("reading unk11[%d] temp1: %w", i, err)
+			}
+			if entry.Temp1 > 0 {
+				for ii := 0; ii < int(entry.Temp1); ii++ {
+					_, err := readZigZagI32(r)
+					if err != nil {
+						return ret, fmt.Errorf("reading unk11[%d] inner %d/%d: %w", i, ii, entry.Temp1, err)
+					}
+				}
+			}
+			ed.Unk11 = append(ed.Unk11, entry)
 		}
 
 		posXb, err := r.ReadBytes(4)
@@ -265,6 +294,19 @@ func (p *PacketFlightModelParser) Parse2(pk *packet.Packet) (*FMUpdatePacket, er
 			}
 		}
 
+		// idk
+		ed.CounterMeasures, err = readCounterMeasures(r)
+		if err != nil {
+			return ret, fmt.Errorf("reading countermeasures: %w", err)
+		}
+
+		if len(ed.CounterMeasures) > 0 {
+			ed.CounterMeasuresU0, err = r.ReadByte()
+			if err != nil {
+				return ret, fmt.Errorf("reading countermeasures unk0: %w", err)
+			}
+		}
+
 		ed.TargetsData, err = readTargets(r)
 		if err != nil {
 			return ret, fmt.Errorf("reading targets: %w", err)
@@ -298,6 +340,19 @@ func (p *PacketFlightModelParser) Parse2(pk *packet.Packet) (*FMUpdatePacket, er
 		}
 
 	}
+
+	// // 3 trailing floats
+	// tf := [3]uint32{}
+	// for i := range tf {
+	// 	v, err := r.ReadU32LE()
+	// 	if err != nil {
+	// 		return ret, fmt.Errorf("reading trailing floats: %w", err)
+	// 	}
+	// 	tf[i] = v
+	// }
+	// ret.TrailingFloats[0] = math.Float32frombits(tf[0])
+	// ret.TrailingFloats[1] = math.Float32frombits(tf[1])
+	// ret.TrailingFloats[2] = math.Float32frombits(tf[2])
 	return ret, nil
 }
 
@@ -438,6 +493,38 @@ func readTarget(r *danet.BitReader) (ret FMTargetData, err error) {
 
 	}
 	return ret, nil
+}
+
+func readCounterMeasures(r *danet.BitReader) ([]FMCounterMeasuresData, error) {
+	cmCount, err := r.ReadByte()
+	if err != nil {
+		return nil, fmt.Errorf("reading countermeasures count: %w", err)
+	}
+	// if cmCount > 2 {
+	// 	return nil, fmt.Errorf("countermeasures count > 2 (got %d)", cmCount)
+	// }
+	ret := make([]FMCounterMeasuresData, cmCount)
+	for i := range ret {
+		ret[i].V1, err = r.ReadByte()
+		if err != nil {
+			return ret, fmt.Errorf("reading countermeasure %d v1: %w", i, err)
+		}
+		ret[i].V2, err = r.ReadByte()
+		if err != nil {
+			return ret, fmt.Errorf("reading countermeasure %d v2: %w", i, err)
+		}
+	}
+	return ret, nil
+}
+
+func readZigZagI32(r *danet.BitReader) (int32, error) {
+	v, err := r.ReadCompressed()
+	if err != nil {
+		return 0, err
+	}
+	u := uint32(v)
+	// restrict to low 32 bits
+	return int32((u >> 1) ^ -(u & 1)), nil
 }
 
 func readSensors(r *danet.BitReader) ([]FMSensorData, error) {
@@ -677,35 +764,36 @@ func readUnk5(r *danet.BitReader) (*FMDataUnk5, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading unk5: %w", err)
 	}
-	if unk5 {
-		ret := &FMDataUnk5{}
-		ret.Unk6, err = r.ReadBool()
-		if err != nil {
-			return ret, fmt.Errorf("reading unk6: %w", err)
-		}
-		ret.Unk7, err = r.ReadBool()
-		if err != nil {
-			return ret, fmt.Errorf("reading unk7: %w", err)
-		}
-		ret.Unk8, err = r.ReadBool()
-		if err != nil {
-			return ret, fmt.Errorf("reading unk8: %w", err)
-		}
-		bitsetLen := [1]byte{}
-		_, err := r.ReadBitsInto(4, bitsetLen[:])
-		if err != nil {
-			return ret, fmt.Errorf("reading unk5 -> bitsetLen: %w", err)
-		}
-		ret.Unk9 = []bool{}
-		for i := range bitsetLen[0] {
-			bit, err := r.ReadBool()
-			if err != nil {
-				return ret, fmt.Errorf("reading unk5 -> bitset val %d/%d: %w", i, bitsetLen[0], err)
-			}
-			ret.Unk9 = append(ret.Unk9, bit)
-		}
+	if !unk5 {
+		return nil, nil
 	}
-	return nil, nil
+	ret := &FMDataUnk5{}
+	ret.Unk6, err = r.ReadBool()
+	if err != nil {
+		return ret, fmt.Errorf("reading unk6: %w", err)
+	}
+	ret.Unk7, err = r.ReadBool()
+	if err != nil {
+		return ret, fmt.Errorf("reading unk7: %w", err)
+	}
+	ret.Unk8, err = r.ReadBool()
+	if err != nil {
+		return ret, fmt.Errorf("reading unk8: %w", err)
+	}
+	bitsetLen := [1]byte{}
+	_, err = r.ReadBitsInto(4, bitsetLen[:])
+	if err != nil {
+		return ret, fmt.Errorf("reading unk5: bitsetLen: %w", err)
+	}
+	ret.Unk9 = make([]bool, 0, bitsetLen[0])
+	for i := range bitsetLen[0] {
+		bit, err := r.ReadBool()
+		if err != nil {
+			return ret, fmt.Errorf("reading unk9: bitset val %d/%d: %w", i, bitsetLen[0], err)
+		}
+		ret.Unk9 = append(ret.Unk9, bit)
+	}
+	return ret, nil
 }
 
 func unpackEuler(packed uint32) (heading, attitude, bank float32) {
