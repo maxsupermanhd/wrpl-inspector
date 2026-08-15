@@ -80,12 +80,6 @@ func ReadVROMFS(raw []byte) (*VROMFS, error) {
 			return nil, errors.New("name is not terminated")
 		}
 		name := string(img[at : at+end])
-		if name == "\xff?nm" {
-			continue
-			// A packed name map replaces this table. No vromfs we read uses
-			// one, so stop instead of returning the bytes of another file.
-			// return nil, errors.New("packed name map is not supported")
-		}
 		// A file record is 4 u32, only the offset and the size are used.
 		rec, err := vromfsAt(img, dataAt+i*16, 16)
 		if err != nil {
