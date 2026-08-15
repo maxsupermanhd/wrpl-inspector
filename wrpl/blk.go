@@ -28,13 +28,21 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
+// ParseBlk parses a FAT or FAT_ZSTD BLK buffer. BLKs of these types carry
+// their name map inline, so no external data is needed.
 func ParseBlk(input []byte) (ret map[string]any, err error) {
+	return ParseBlkWithNameMap(input, nil)
+}
+
+// ParseBlkWithNameMap is ParseBlk that also accepts an optional external name
+// map, which SLIM and SLIM_ZSTD BLKs reference instead of embedding one.
+func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, err error) {
 	if len(input) == 0 {
 		return nil, errors.New("empty BLK buffer")
 	}
 	switch input[0] {
 	case 0x01: // FAT
-		return parseFatBlk(input[1:])
+		return parseFatBlk(input[1:], nameMap)
 	case 0x02: // FAT_ZSTD
 		if len(input) < 4 {
 			return nil, errors.New("FAT_ZSTD: truncated header")
@@ -55,10 +63,16 @@ func ParseBlk(input []byte) (ret map[string]any, err error) {
 		if len(out) == 0 || out[0] != 0x01 {
 			return nil, errors.New("FAT_ZSTD: decoded payload missing FAT header")
 		}
-		return parseFatBlk(out[1:])
-	case 0x03:
-		return nil, errors.New("SLIM BLK is not yet supported (and won't lol)")
+		return parseFatBlk(out[1:], nameMap)
+	case 0x03: // SLIM
+		if nameMap == nil {
+			return nil, errors.New("SLIM BLK is not yet supported (and won't lol)")
+		}
+		return parseFatBlk(input[1:], nameMap)
 	case 0x04: // SLIM_ZSTD
+		if nameMap == nil {
+			return nil, errors.New("SLIM_ZSTD BLK is not supported without an external name map")
+		}
 		dec, err := zstd.NewReader(nil)
 		if err != nil {
 			return nil, fmt.Errorf("SLIM_ZSTD: new zstd reader: %w", err)
@@ -68,8 +82,7 @@ func ParseBlk(input []byte) (ret map[string]any, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("SLIM_ZSTD: decode: %w", err)
 		}
-		_ = out
-		return nil, errors.New("SLIM_ZSTD BLK is not supported without an external name map")
+		return parseFatBlk(out, nameMap)
 	case 0x05: // SLIM_ZSTD_DICT
 		return nil, errors.New("SLIM_ZSTD_DICT BLK not supported (requires dictionary and external name map)")
 	case 0x00: // BBF legacy
@@ -77,6 +90,51 @@ func ParseBlk(input []byte) (ret map[string]any, err error) {
 	default:
 		return nil, fmt.Errorf("unknown header 0x%02x", input[0])
 	}
+}
+
+// ParseNameMap decodes a vromfs name map entry into the list of names it
+// holds. The entry, stored in the vromfs image under the name "\xff?nm", is a
+// zstd blob prefixed by digest bytes; the decompressed payload starts with two
+// ULEB128 values (name count, then byte size) followed by the null-separated
+// names.
+func ParseNameMap(entry []byte) ([]string, error) {
+	if len(entry) < 40 {
+		return nil, errors.New("name map entry truncated")
+	}
+	dec, err := zstd.NewReader(nil)
+	if err != nil {
+		return nil, fmt.Errorf("name map: new zstd reader: %w", err)
+	}
+	defer dec.Close()
+	out, err := dec.DecodeAll(entry[40:], nil)
+	if err != nil {
+		return nil, fmt.Errorf("name map: decode: %w", err)
+	}
+	p := 0
+	readULEB := func() (uint64, error) {
+		v, n, err := uleb128(out[p:])
+		if err != nil {
+			return 0, err
+		}
+		p += n
+		return v, nil
+	}
+	count, err := readULEB()
+	if err != nil {
+		return nil, fmt.Errorf("name map: names count: %w", err)
+	}
+	size, err := readULEB()
+	if err != nil {
+		return nil, fmt.Errorf("name map: names size: %w", err)
+	}
+	if p+int(size) > len(out) {
+		return nil, errors.New("name map: names truncated")
+	}
+	names := parseNullSeparatedStrings(out[p : p+int(size)])
+	if len(names) != int(count) {
+		return nil, fmt.Errorf("name map: expected %d names, got %d", count, len(names))
+	}
+	return names, nil
 }
 
 type blkFlatBlock struct {
@@ -91,7 +149,7 @@ type blkField struct {
 	value any
 }
 
-func parseFatBlk(buf []byte) (map[string]any, error) {
+func parseFatBlk(buf []byte, nameMap []string) (map[string]any, error) {
 	p := 0
 	readULEB := func() (uint64, error) {
 		v, n, err := uleb128(buf[p:])
@@ -106,17 +164,22 @@ func parseFatBlk(buf []byte) (map[string]any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("names_count: %w", err)
 	}
-	namesSize64, err := readULEB()
-	if err != nil {
-		return nil, fmt.Errorf("names_size: %w", err)
+	var names []string
+	if nameMap == nil {
+		namesSize64, err := readULEB()
+		if err != nil {
+			return nil, fmt.Errorf("names_size: %w", err)
+		}
+		namesSize := int(namesSize64)
+		if p+namesSize > len(buf) {
+			return nil, errors.New("names buffer truncated")
+		}
+		namesRaw := buf[p : p+namesSize]
+		p += namesSize
+		names = parseNullSeparatedStrings(namesRaw)
+	} else {
+		names = nameMap
 	}
-	namesSize := int(namesSize64)
-	if p+namesSize > len(buf) {
-		return nil, errors.New("names buffer truncated")
-	}
-	namesRaw := buf[p : p+namesSize]
-	p += namesSize
-	names := parseNullSeparatedStrings(namesRaw)
 
 	// Blocks count (total)
 	totalBlocks64, err := readULEB()
