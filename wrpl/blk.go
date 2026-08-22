@@ -34,6 +34,28 @@ func ParseBlk(input []byte) (ret map[string]any, err error) {
 	return ParseBlkWithNameMap(input, nil)
 }
 
+func BlkNeedsNameMap(input []byte) (bool, error) {
+	if len(input) == 0 {
+		return false, errors.New("empty BLK buffer")
+	}
+	switch input[0] {
+	case 0x01: // FAT
+		return false, nil
+	case 0x02: // FAT_ZSTD
+		return false, nil
+	case 0x03: // SLIM
+		return true, nil
+	case 0x04: // SLIM_ZSTD
+		return true, nil
+	case 0x05: // SLIM_ZSTD_DICT
+		return false, errors.New("SLIM_ZSTD_DICT BLK not supported (requires dictionary and external name map)")
+	case 0x00: // BBF legacy
+		return false, errors.New("BBF BLK not supported")
+	default:
+		return false, fmt.Errorf("unknown header 0x%02x", input[0])
+	}
+}
+
 // ParseBlkWithNameMap is ParseBlk that also accepts an optional external name
 // map, which SLIM and SLIM_ZSTD BLKs reference instead of embedding one.
 func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, err error) {
