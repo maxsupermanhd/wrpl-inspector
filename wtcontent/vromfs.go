@@ -1,4 +1,4 @@
-package vromfs
+package wtcontent
 
 import (
 	"bytes"
