@@ -21,18 +21,29 @@ package catalog
 import (
 	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
 	packetaward "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/award"
+	packetcameraangles "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/cameraAnglesParser"
 	packetchat "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/chat"
+	packetdamage "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/damage"
 	packetecs2 "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/ecs2"
+	packetfm "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/fm"
 	packetkill "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/kill"
 	packetmovement "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/movement"
+	packetnextsegment "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/nextSegment"
+	packetslot "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/slot"
 	packetstub "github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet/parser/stub"
 )
 
 var (
 	_ packet.PacketParser = &packetaward.PacketAwardParser{}
+	_ packet.PacketParser = &packetcameraangles.PacketCameraAnglesParser{}
 	_ packet.PacketParser = &packetchat.PacketChatParser{}
+	_ packet.PacketParser = &packetdamage.SevereDamageParser{}
+	_ packet.PacketParser = &packetdamage.CriticalDamageParser{}
 	_ packet.PacketParser = &packetecs2.PacketECSParser{}
+	_ packet.PacketParser = &packetfm.PacketFlightModelParser{}
 	_ packet.PacketParser = &packetkill.PacketKillParser{}
 	_ packet.PacketParser = &packetmovement.PositionRetainerParser{}
+	_ packet.PacketParser = &packetnextsegment.PacketNextSegmentParser{}
+	_ packet.PacketParser = &packetslot.PacketSlotParser{}
 	_ packet.PacketParser = &packetstub.PacketStubParser{}
 )
