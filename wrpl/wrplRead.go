@@ -28,6 +28,7 @@ import (
 	"slices"
 
 	"github.com/klauspost/compress/zlib"
+	"github.com/klauspost/compress/zstd"
 )
 
 // type Player struct {
@@ -138,7 +139,7 @@ func OpenPartedReplay(replayBytes [][]byte) (ret *ReplayReader, err error) {
 
 // OpenReplay reads header and conditionally settings, packets and resuls blobs
 //
-// If openPackets is true then Replay will have zlib-backed io that needs to be closed via Close
+// If openPackets is true then Replay will have zlib- or zstd-backed io that needs to be closed via Close
 func OpenReplay(r io.ReadSeeker, readSettings, openPackets, readResults bool) (ret *ReplayReader, err error) {
 	ret = &ReplayReader{}
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
@@ -173,9 +174,25 @@ func OpenReplay(r io.ReadSeeker, readSettings, openPackets, readResults bool) (r
 		if err != nil {
 			return ret, fmt.Errorf("seeking for packets")
 		}
-		ret.PacketStream, err = zlib.NewReader(r)
-		if err != nil {
-			return ret, fmt.Errorf("opening zlib packets stream: %w", err)
+		// newer client replays (seen on version 101404) use zstd instead of zlib
+		magic := make([]byte, 4)
+		if _, err := io.ReadFull(r, magic); err != nil {
+			return ret, fmt.Errorf("peeking packets stream: %w", err)
+		}
+		if _, err := r.Seek(int64(ret.Header.SettingsBLKSize)+1234, io.SeekStart); err != nil {
+			return ret, fmt.Errorf("seeking for packets")
+		}
+		if bytes.Equal(magic, []byte{0x28, 0xb5, 0x2f, 0xfd}) {
+			zr, err := zstd.NewReader(r, zstd.WithDecoderConcurrency(1), zstd.WithDecoderLowmem(true))
+			if err != nil {
+				return ret, fmt.Errorf("opening zstd packets stream: %w", err)
+			}
+			ret.PacketStream = zr.IOReadCloser()
+		} else {
+			ret.PacketStream, err = zlib.NewReader(r)
+			if err != nil {
+				return ret, fmt.Errorf("opening zlib packets stream: %w", err)
+			}
 		}
 	}
 
