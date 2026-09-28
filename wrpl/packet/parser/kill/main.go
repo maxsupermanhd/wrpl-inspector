@@ -20,7 +20,6 @@ package packetkill
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet"
 	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/game"
@@ -95,7 +94,7 @@ func (p *PacketKillParser) Parse(pk *packet.Packet) (any, error) {
 			if parsed.VictimUid != 0x7FF {
 				resolved, ok := p.ECS.GetEntityByUid(int32(parsed.VictimUid))
 				if !ok {
-					return fmt.Errorf("failed to resolve victim uid %v", parsed.VictimUid)
+					return nil // entity table unavailable (newer versions): keep the pid/vehicle/weapon fields
 				}
 				parsed.ResolvedVictim = resolved
 				if p.PathsGround != nil {
@@ -145,7 +144,7 @@ func (p *PacketKillParser) Parse(pk *packet.Packet) (any, error) {
 			if parsed.KillerUid != 0x7FF {
 				resolved, ok := p.ECS.GetEntityByUid(int32(parsed.KillerUid))
 				if !ok {
-					return fmt.Errorf("failed to resolve killer uid %v", parsed.KillerUid)
+					return nil // entity table unavailable (newer versions): keep the pid/vehicle/weapon fields
 				}
 				parsed.ResolvedKiller = resolved
 				if p.PathsGround != nil {
