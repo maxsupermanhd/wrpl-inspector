@@ -21,6 +21,7 @@ package packetecs2
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
 
 	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/danet"
 	"github.com/maxsupermanhd/wrpl-inspector/v3/wrpl/packet"
@@ -79,6 +80,10 @@ type PacketECSParser struct {
 	InternedStrings map[uint16]string
 	Mgr             EntityManager
 	Maps            ComponentHashMaps
+	// ConstructionFlagsByte: replays since (at least) header version 101404 carry one extra byte in every entity
+	// construction, right before the component count (seen as 0x00 so far). Without skipping it the count reads as 0 and
+	// every entity comes out empty (no uid, so kills cannot be resolved). On by default; turn off for older replays.
+	ConstructionFlagsByte bool
 }
 
 func NewPacketECSParser(m ComponentHashMaps) *PacketECSParser { // I removed parsers because that data will not change across iterations, so no need to reload it
@@ -91,7 +96,8 @@ func NewPacketECSParser(m ComponentHashMaps) *PacketECSParser { // I removed par
 			Entities:   map[uint32]*Entity{},
 			Uid_lookup: map[int32]*Entity{},
 		},
-		Maps: m,
+		Maps:                  m,
+		ConstructionFlagsByte: true,
 	}
 }
 
@@ -183,6 +189,11 @@ func (p *PacketECSParser) ParseECSTemplate(r *danet.BitReader) (*Template, error
 
 func (p *PacketECSParser) deserializeConstruction(r *danet.BitReader, templ *Template) (ret *Entity, err error) {
 	templateComponentsCount := uint16(len(templ.Components))
+	if p.ConstructionFlagsByte {
+		if _, err := r.ReadByte(); err != nil {
+			return nil, err
+		}
+	}
 	var compCount uint64
 	if templateComponentsCount < 256 {
 		temp, err := r.ReadByte()
@@ -235,11 +246,16 @@ func (p *PacketECSParser) deserializeConstruction(r *danet.BitReader, templ *Tem
 		}
 		component, err := deserialize_init_component_typeless(r, p, c.Type, c.Name)
 		if err != nil {
+			// A component type newer than ecshashes.json: keep what was read so far (uid, class name, team and player
+			// come early). The construction block is length-prefixed, so the rest of the packet is not affected.
+			if i > 0 {
+				return &Payload, nil
+			}
 			return nil, err
 		}
 		name, good := p.Maps.GetDataCompName(c.Name)
 		if !good {
-			return nil, fmt.Errorf("unkown Datatype of name %d", c.Name)
+			name = fmt.Sprintf("#%d", c.Name) // unknown name: keep the value under its hash
 		}
 		Payload.Data.AddComponent(component, name)
 	}
@@ -308,12 +324,28 @@ func (p *PacketECSParser) Parse(pk *packet.Packet) (any, error) {
 		if err != nil {
 			return nil, err
 		}
+		var firstErr error
 		for range uint64(dat.MessageCount) + 1 {
 			msg, err := p.ParseECSConstructMessage(r)
 			if err != nil {
-				return nil, fmt.Errorf("reading ecs construct message: %w", err)
+				// The block was already read when the template or the entity fails, so carry on with the next message.
+				// Returning here dropped every template defined later in the same packet, and with them every entity
+				// built from those templates (one replay lost all of its tanks this way). Only a broken stream (eid,
+				// block size, block) stops the packet.
+				s := err.Error()
+				if strings.HasPrefix(s, "reading eid") || strings.HasPrefix(s, "reading compressed block size") || strings.HasPrefix(s, "reading block") {
+					return nil, fmt.Errorf("reading ecs construct message: %w", err)
+				}
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
 			}
 			dat.Messages = append(dat.Messages, msg)
+		}
+		if firstErr != nil {
+			p.Messages = append(p.Messages, *dat)
+			return dat, fmt.Errorf("reading ecs construct message: %w", firstErr)
 		}
 	}
 	p.Messages = append(p.Messages, *dat)
@@ -328,6 +360,10 @@ func deserialize_init_component_typeless(r *danet.BitReader, mgr *PacketECSParse
 	if datacomp_type != 0 { // if we have a datacomp, use that, else use the component serializer
 		serializer, _ = mgr.Maps.DataComponentParsers[datacomp_type]
 	} else {
+		serializer, _ = mgr.Maps.ComponentParsers[comp_type]
+	}
+	if serializer == nil && datacomp_type != 0 {
+		// Data component name unknown (ecshashes.json older than the game): fall back to the component type.
 		serializer, _ = mgr.Maps.ComponentParsers[comp_type]
 	}
 	if serializer == nil {
