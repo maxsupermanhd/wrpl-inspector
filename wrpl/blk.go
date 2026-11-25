@@ -58,13 +58,14 @@ func BlkNeedsNameMap(input []byte) (bool, error) {
 
 // ParseBlkWithNameMap is ParseBlk that also accepts an optional external name
 // map, which SLIM and SLIM_ZSTD BLKs reference instead of embedding one.
+// FAT and FAT_ZSTD BLKs always use their own names.
 func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, err error) {
 	if len(input) == 0 {
 		return nil, errors.New("empty BLK buffer")
 	}
 	switch input[0] {
 	case 0x01: // FAT
-		return parseFatBlk(input[1:], nameMap)
+		return parseFatBlk(input[1:], nil)
 	case 0x02: // FAT_ZSTD
 		if len(input) < 4 {
 			return nil, errors.New("FAT_ZSTD: truncated header")
@@ -85,7 +86,7 @@ func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, er
 		if len(out) == 0 || out[0] != 0x01 {
 			return nil, errors.New("FAT_ZSTD: decoded payload missing FAT header")
 		}
-		return parseFatBlk(out[1:], nameMap)
+		return parseFatBlk(out[1:], nil)
 	case 0x03: // SLIM
 		if nameMap == nil {
 			return nil, errors.New("SLIM BLK is not yet supported (and won't lol)")
