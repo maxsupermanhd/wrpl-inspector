@@ -28,6 +28,7 @@ import (
 	"slices"
 
 	"github.com/klauspost/compress/zlib"
+	"github.com/klauspost/compress/zstd"
 )
 
 // type Player struct {
@@ -173,9 +174,32 @@ func OpenReplay(r io.ReadSeeker, readSettings, openPackets, readResults bool) (r
 		if err != nil {
 			return ret, fmt.Errorf("seeking for packets")
 		}
-		ret.PacketStream, err = zlib.NewReader(r)
-		if err != nil {
-			return ret, fmt.Errorf("opening zlib packets stream: %w", err)
+		// Server replays from October 2026 (header version 101404) compress the packet stream with zstd instead of zlib,
+		// at the same offset. The zstd decoder keeps reading frame after frame, so it is limited to the packet section
+		// (everything before the results blk) to not run into the results.
+		start := int64(ret.Header.SettingsBLKSize) + 1234
+		magic := make([]byte, 4)
+		if _, err := io.ReadFull(r, magic); err != nil {
+			return ret, fmt.Errorf("reading packets magic: %w", err)
+		}
+		if _, err := r.Seek(start, io.SeekStart); err != nil {
+			return ret, fmt.Errorf("seeking for packets")
+		}
+		if bytes.Equal(magic, []byte{0x28, 0xb5, 0x2f, 0xfd}) {
+			var src io.Reader = r
+			if ret.Header.ResultsBlkOffset > 0 {
+				src = io.LimitReader(r, int64(ret.Header.ResultsBlkOffset)-start)
+			}
+			dec, err := zstd.NewReader(src)
+			if err != nil {
+				return ret, fmt.Errorf("opening zstd packets stream: %w", err)
+			}
+			ret.PacketStream = dec.IOReadCloser()
+		} else {
+			ret.PacketStream, err = zlib.NewReader(r)
+			if err != nil {
+				return ret, fmt.Errorf("opening zlib packets stream: %w", err)
+			}
 		}
 	}
 
