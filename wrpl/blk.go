@@ -48,7 +48,7 @@ func BlkNeedsNameMap(input []byte) (bool, error) {
 	case 0x04: // SLIM_ZSTD
 		return true, nil
 	case 0x05: // SLIM_ZSTD_DICT
-		return false, errors.New("SLIM_ZSTD_DICT BLK not supported (requires dictionary and external name map)")
+		return true, nil
 	case 0x00: // BBF legacy
 		return false, errors.New("BBF BLK not supported")
 	default:
@@ -60,6 +60,17 @@ func BlkNeedsNameMap(input []byte) (bool, error) {
 // map, which SLIM and SLIM_ZSTD BLKs reference instead of embedding one.
 // FAT and FAT_ZSTD BLKs always use their own names.
 func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, err error) {
+	return ParseBlkWithDecoder(input, nameMap, nil)
+}
+
+// ParseBlkWithDecoder is ParseBlkWithNameMap that unpacks SLIM_ZSTD and
+// SLIM_ZSTD_DICT BLKs with dec. For SLIM_ZSTD_DICT, make dec with the .dict
+// file of the vromfs:
+//
+//	dec, err := zstd.NewReader(nil, zstd.WithDecoderDicts(dict))
+//
+// A nil dec is correct for all other types.
+func ParseBlkWithDecoder(input []byte, nameMap []string, dec *zstd.Decoder) (ret map[string]any, err error) {
 	if len(input) == 0 {
 		return nil, errors.New("empty BLK buffer")
 	}
@@ -92,22 +103,29 @@ func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, er
 			return nil, errors.New("SLIM BLK is not yet supported (and won't lol)")
 		}
 		return parseFatBlk(input[1:], nameMap)
-	case 0x04: // SLIM_ZSTD
+	case 0x04, 0x05: // SLIM_ZSTD, SLIM_ZSTD_DICT
+		kind := "SLIM_ZSTD"
+		if input[0] == 0x05 {
+			kind = "SLIM_ZSTD_DICT"
+		}
 		if nameMap == nil {
-			return nil, errors.New("SLIM_ZSTD BLK is not supported without an external name map")
+			return nil, fmt.Errorf("%s BLK is not supported without an external name map", kind)
 		}
-		dec, err := zstd.NewReader(nil)
-		if err != nil {
-			return nil, fmt.Errorf("SLIM_ZSTD: new zstd reader: %w", err)
+		if dec == nil {
+			if input[0] == 0x05 {
+				return nil, errors.New("SLIM_ZSTD_DICT BLK needs a zstd decoder with the vromfs dictionary")
+			}
+			dec, err = zstd.NewReader(nil)
+			if err != nil {
+				return nil, fmt.Errorf("%s: new zstd reader: %w", kind, err)
+			}
+			defer dec.Close()
 		}
-		defer dec.Close()
 		out, err := dec.DecodeAll(input[1:], nil)
 		if err != nil {
-			return nil, fmt.Errorf("SLIM_ZSTD: decode: %w", err)
+			return nil, fmt.Errorf("%s: decode: %w", kind, err)
 		}
 		return parseFatBlk(out, nameMap)
-	case 0x05: // SLIM_ZSTD_DICT
-		return nil, errors.New("SLIM_ZSTD_DICT BLK not supported (requires dictionary and external name map)")
 	case 0x00: // BBF legacy
 		return nil, errors.New("BBF BLK not supported")
 	default:
