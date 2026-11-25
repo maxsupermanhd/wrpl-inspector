@@ -81,7 +81,7 @@ func ParseBlkWithDecoder(input []byte, nameMap []string, dec *zstd.Decoder) (ret
 		if len(input) < 4 {
 			return nil, errors.New("FAT_ZSTD: truncated header")
 		}
-		l := (uint32(input[1]) << 16) | (uint32(input[2]) << 8) | uint32(input[3])
+		l := uint32(input[1]) | (uint32(input[2]) << 8) | (uint32(input[3]) << 16)
 		if len(input) < int(4+l) {
 			return nil, fmt.Errorf("FAT_ZSTD: compressed payload truncated: need %d, have %d", 4+l, len(input))
 		}
