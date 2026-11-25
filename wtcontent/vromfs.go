@@ -46,7 +46,6 @@ func ReadVROMFS(raw []byte) (*VROMFS, error) {
 		return ret, nil
 	}
 	if size := int(ret.Pack & 0x03FFFFFF); size > 0 && size <= len(body) {
-		fmt.Println("body", len(body), size, len(body)-size)
 		body = body[:size] // an md5 digest can follow the image
 	}
 	imgReader, err := zstd.NewReader(bytes.NewBuffer(vromfsDeobfuscate(body)))
@@ -64,7 +63,6 @@ func ReadVROMFS(raw []byte) (*VROMFS, error) {
 	namesAt := int(binary.LittleEndian.Uint32(img[0:4]))
 	namesCount := int(binary.LittleEndian.Uint32(img[4:8]))
 	dataAt := int(binary.LittleEndian.Uint32(img[16:20]))
-	fmt.Println("names", namesAt, namesCount, "data", dataAt)
 	ret.Files = map[string][]byte{}
 	for i := range namesCount {
 		p, err := vromfsAt(img, namesAt+i*8, 8)
