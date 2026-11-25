@@ -475,16 +475,17 @@ func parseFatBlk(buf []byte, nameMap []string) (map[string]any, error) {
 	build = func(idx int) map[string]any {
 		fb := flat[idx]
 		m := map[string]any{}
+		repeated := map[string]bool{}
 		// fields
 		for _, f := range fb.fields {
-			putKV(m, f.name, f.value)
+			putKV(m, repeated, f.name, f.value)
 		}
 		// children
 		if fb.childCount > 0 {
 			for c := fb.firstChild; c < fb.firstChild+fb.childCount; c++ {
 				childMap := build(c)
 				childName := flat[c].name
-				putKV(m, childName, childMap)
+				putKV(m, repeated, childName, childMap)
 			}
 		}
 		return m
@@ -494,16 +495,18 @@ func parseFatBlk(buf []byte, nameMap []string) (map[string]any, error) {
 	return root, nil
 }
 
-func putKV(m map[string]any, k string, v any) {
-	if ex, ok := m[k]; ok {
-		switch existing := ex.(type) {
-		case []any:
-			m[k] = append(existing, v)
-		default:
-			m[k] = []any{existing, v}
-		}
-	} else {
+// putKV puts a value in m. A key that repeats gets a list of all its values.
+// The repeated set tells such a list from a single vector value.
+func putKV(m map[string]any, repeated map[string]bool, k string, v any) {
+	ex, ok := m[k]
+	switch {
+	case !ok:
 		m[k] = v
+	case repeated[k]:
+		m[k] = append(ex.([]any), v)
+	default:
+		m[k] = []any{ex, v}
+		repeated[k] = true
 	}
 }
 
