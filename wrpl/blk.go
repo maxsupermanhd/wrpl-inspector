@@ -48,7 +48,7 @@ func BlkNeedsNameMap(input []byte) (bool, error) {
 	case 0x04: // SLIM_ZSTD
 		return true, nil
 	case 0x05: // SLIM_ZSTD_DICT
-		return false, errors.New("SLIM_ZSTD_DICT BLK not supported (requires dictionary and external name map)")
+		return true, nil
 	case 0x00: // BBF legacy
 		return false, errors.New("BBF BLK not supported")
 	default:
@@ -58,18 +58,30 @@ func BlkNeedsNameMap(input []byte) (bool, error) {
 
 // ParseBlkWithNameMap is ParseBlk that also accepts an optional external name
 // map, which SLIM and SLIM_ZSTD BLKs reference instead of embedding one.
+// FAT and FAT_ZSTD BLKs always use their own names.
 func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, err error) {
+	return ParseBlkWithDecoder(input, nameMap, nil)
+}
+
+// ParseBlkWithDecoder is ParseBlkWithNameMap that unpacks SLIM_ZSTD and
+// SLIM_ZSTD_DICT BLKs with dec. For SLIM_ZSTD_DICT, make dec with the .dict
+// file of the vromfs:
+//
+//	dec, err := zstd.NewReader(nil, zstd.WithDecoderDicts(dict))
+//
+// A nil dec is correct for all other types.
+func ParseBlkWithDecoder(input []byte, nameMap []string, dec *zstd.Decoder) (ret map[string]any, err error) {
 	if len(input) == 0 {
 		return nil, errors.New("empty BLK buffer")
 	}
 	switch input[0] {
 	case 0x01: // FAT
-		return parseFatBlk(input[1:], nameMap)
+		return parseFatBlk(input[1:], nil)
 	case 0x02: // FAT_ZSTD
 		if len(input) < 4 {
 			return nil, errors.New("FAT_ZSTD: truncated header")
 		}
-		l := (uint32(input[1]) << 16) | (uint32(input[2]) << 8) | uint32(input[3])
+		l := uint32(input[1]) | (uint32(input[2]) << 8) | (uint32(input[3]) << 16)
 		if len(input) < int(4+l) {
 			return nil, fmt.Errorf("FAT_ZSTD: compressed payload truncated: need %d, have %d", 4+l, len(input))
 		}
@@ -85,28 +97,35 @@ func ParseBlkWithNameMap(input []byte, nameMap []string) (ret map[string]any, er
 		if len(out) == 0 || out[0] != 0x01 {
 			return nil, errors.New("FAT_ZSTD: decoded payload missing FAT header")
 		}
-		return parseFatBlk(out[1:], nameMap)
+		return parseFatBlk(out[1:], nil)
 	case 0x03: // SLIM
 		if nameMap == nil {
 			return nil, errors.New("SLIM BLK is not yet supported (and won't lol)")
 		}
 		return parseFatBlk(input[1:], nameMap)
-	case 0x04: // SLIM_ZSTD
+	case 0x04, 0x05: // SLIM_ZSTD, SLIM_ZSTD_DICT
+		kind := "SLIM_ZSTD"
+		if input[0] == 0x05 {
+			kind = "SLIM_ZSTD_DICT"
+		}
 		if nameMap == nil {
-			return nil, errors.New("SLIM_ZSTD BLK is not supported without an external name map")
+			return nil, fmt.Errorf("%s BLK is not supported without an external name map", kind)
 		}
-		dec, err := zstd.NewReader(nil)
-		if err != nil {
-			return nil, fmt.Errorf("SLIM_ZSTD: new zstd reader: %w", err)
+		if dec == nil {
+			if input[0] == 0x05 {
+				return nil, errors.New("SLIM_ZSTD_DICT BLK needs a zstd decoder with the vromfs dictionary")
+			}
+			dec, err = zstd.NewReader(nil)
+			if err != nil {
+				return nil, fmt.Errorf("%s: new zstd reader: %w", kind, err)
+			}
+			defer dec.Close()
 		}
-		defer dec.Close()
 		out, err := dec.DecodeAll(input[1:], nil)
 		if err != nil {
-			return nil, fmt.Errorf("SLIM_ZSTD: decode: %w", err)
+			return nil, fmt.Errorf("%s: decode: %w", kind, err)
 		}
 		return parseFatBlk(out, nameMap)
-	case 0x05: // SLIM_ZSTD_DICT
-		return nil, errors.New("SLIM_ZSTD_DICT BLK not supported (requires dictionary and external name map)")
 	case 0x00: // BBF legacy
 		return nil, errors.New("BBF BLK not supported")
 	default:
@@ -474,16 +493,17 @@ func parseFatBlk(buf []byte, nameMap []string) (map[string]any, error) {
 	build = func(idx int) map[string]any {
 		fb := flat[idx]
 		m := map[string]any{}
+		repeated := map[string]bool{}
 		// fields
 		for _, f := range fb.fields {
-			putKV(m, f.name, f.value)
+			putKV(m, repeated, f.name, f.value)
 		}
 		// children
 		if fb.childCount > 0 {
 			for c := fb.firstChild; c < fb.firstChild+fb.childCount; c++ {
 				childMap := build(c)
 				childName := flat[c].name
-				putKV(m, childName, childMap)
+				putKV(m, repeated, childName, childMap)
 			}
 		}
 		return m
@@ -493,16 +513,18 @@ func parseFatBlk(buf []byte, nameMap []string) (map[string]any, error) {
 	return root, nil
 }
 
-func putKV(m map[string]any, k string, v any) {
-	if ex, ok := m[k]; ok {
-		switch existing := ex.(type) {
-		case []any:
-			m[k] = append(existing, v)
-		default:
-			m[k] = []any{existing, v}
-		}
-	} else {
+// putKV puts a value in m. A key that repeats gets a list of all its values.
+// The repeated set tells such a list from a single vector value.
+func putKV(m map[string]any, repeated map[string]bool, k string, v any) {
+	ex, ok := m[k]
+	switch {
+	case !ok:
 		m[k] = v
+	case repeated[k]:
+		m[k] = append(ex.([]any), v)
+	default:
+		m[k] = []any{ex, v}
+		repeated[k] = true
 	}
 }
 

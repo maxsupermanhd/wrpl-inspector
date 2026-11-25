@@ -35,28 +35,26 @@ func ReadVROMFS(raw []byte) (*VROMFS, error) {
 	default:
 		return nil, fmt.Errorf("unknown header %q", magic)
 	}
+	var img []byte
 	if ret.Pack>>26 == 0x20 { // stored as is, every other packing is zstd
-		content, err := vromfsAt(body, 0, int(binary.LittleEndian.Uint32(raw[8:12])))
+		var err error
+		img, err = vromfsAt(body, 0, int(binary.LittleEndian.Uint32(raw[8:12])))
 		if err != nil {
 			return nil, err
 		}
-		ret.Files = map[string][]byte{
-			"": content,
+	} else {
+		if size := int(ret.Pack & 0x03FFFFFF); size > 0 && size <= len(body) {
+			body = body[:size] // an md5 digest can follow the image
 		}
-		return ret, nil
-	}
-	if size := int(ret.Pack & 0x03FFFFFF); size > 0 && size <= len(body) {
-		fmt.Println("body", len(body), size, len(body)-size)
-		body = body[:size] // an md5 digest can follow the image
-	}
-	imgReader, err := zstd.NewReader(bytes.NewBuffer(vromfsDeobfuscate(body)))
-	if err != nil {
-		return nil, err
-	}
-	img, err := io.ReadAll(imgReader)
-	imgReader.Close()
-	if err != nil {
-		return nil, err
+		imgReader, err := zstd.NewReader(bytes.NewBuffer(vromfsDeobfuscate(body)))
+		if err != nil {
+			return nil, err
+		}
+		img, err = io.ReadAll(imgReader)
+		imgReader.Close()
+		if err != nil {
+			return nil, err
+		}
 	}
 	if len(img) < 24 {
 		return nil, errors.New("image too short")
@@ -64,7 +62,6 @@ func ReadVROMFS(raw []byte) (*VROMFS, error) {
 	namesAt := int(binary.LittleEndian.Uint32(img[0:4]))
 	namesCount := int(binary.LittleEndian.Uint32(img[4:8]))
 	dataAt := int(binary.LittleEndian.Uint32(img[16:20]))
-	fmt.Println("names", namesAt, namesCount, "data", dataAt)
 	ret.Files = map[string][]byte{}
 	for i := range namesCount {
 		p, err := vromfsAt(img, namesAt+i*8, 8)
